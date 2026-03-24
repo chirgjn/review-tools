@@ -18,8 +18,8 @@ Emojis: +1, -1, laugh, confused, heart, hooray, eyes, rocket
 
 Examples:
   uv run reply-review owner/repo 45 --list
-  uv run reply-review owner/repo 45 1234567890 "Fixed"
-  uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed"
+  uv run reply-review owner/repo 45 1234567890 "Extracted to helper as suggested"
+  uv run reply-review owner/repo 45 1234567890 "Fixed" --react +1
   uv run reply-review owner/repo 45 --react-all eyes
 
 Reply quality: "Done" (simple), "Extracted to helper" (complex), or ask for clarification.

@@ -2,11 +2,11 @@
 
 **Philosophy:** File-first, batched code reviews with no timeline noise.
 
-| Principle | Why It Matters |
-|-----------|---------------|
+| Principle      | Why It Matters                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **File-first** | Review your comments before posting. GitHub review comments are permanent—no undo without leaving dismissed timeline entries. |
-| **Batching** | One review per PR, not one per comment. Multiple reviews = permanent timeline clutter that can't be cleaned up. |
-| **Quality** | Comments explain WHY, not just WHAT. Minimum 10 words (except LGTM, Approved, etc.). |
+| **Batching**   | One review per PR, not one per comment. Multiple reviews = permanent timeline clutter that can't be cleaned up.               |
+| **Quality**    | Comments explain WHY, not just WHAT. Minimum 10 words (except LGTM, Approved, etc.).                                          |
 
 ## Installation
 
@@ -18,6 +18,7 @@ uv sync  # Installs with dev dependencies
 ```
 
 Or run without installing:
+
 ```bash
 uv run pr-threads owner/repo#35 --all
 ```
@@ -83,20 +84,25 @@ uv run build-review --post owner/repo 42 --review-body "Refactoring suggestions"
 **Respond to review comments:**
 
 ```bash
-uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed"
+# List and reply individually (preferred)
+uv run reply-review owner/repo 45 --list
+uv run reply-review owner/repo 45 1234567890 "Extracted to helper as suggested"
+
+# Or acknowledge all with reactions
+uv run reply-review owner/repo 45 --react-all eyes
 ```
 
 ## Commands
 
-| Command | Purpose |
-|---------|---------|
-| `uv run pr-threads` | Fetch PR review comments |
-| `uv run suggest-checklist` | Suggest checklist items from patterns |
-| `uv run scan-violations` | Auto-detect violations in PRs |
-| `uv run build-review` | Build review payload incrementally |
-| `uv run get-positions` | Convert file:line to GitHub diff position |
-| `uv run post-review` | Post batched GitHub review |
-| `uv run reply-review` | Reply/react to PR comments |
+| Command                    | Purpose                                   |
+| -------------------------- | ----------------------------------------- |
+| `uv run pr-threads`        | Fetch PR review comments                  |
+| `uv run suggest-checklist` | Suggest checklist items from patterns     |
+| `uv run scan-violations`   | Auto-detect violations in PRs             |
+| `uv run build-review`      | Build review payload incrementally        |
+| `uv run get-positions`     | Convert file:line to GitHub diff position |
+| `uv run post-review`       | Post batched GitHub review                |
+| `uv run reply-review`      | Reply/react to PR comments                |
 
 ## Development
 
@@ -114,16 +120,19 @@ uv run ruff format src/
 ### Code Patterns
 
 **Performance:**
+
 - Pre-compile regex at module level
 - Use `functools.lru_cache` for API calls
 - Use `frozenset` for O(1) lookups
 
 **Error Handling:**
+
 - Use `rich.console` for colored output
 - Show helpful context, not just raw errors
 - Provide `--force-*` flags for user overrides
 
 **Adding Commands:**
+
 1. Follow `verb-noun` naming (e.g., `scan-violations`)
 2. Add entry point in `pyproject.toml`
 3. Use file-based patterns (read from `--input`, write to `--output`)
