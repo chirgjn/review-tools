@@ -1,58 +1,36 @@
 #!/usr/bin/env python3
 """post-review — Post batched GitHub PR review.
 
-⚠️ ALWAYS batch comments into ONE review. Never post multiple reviews (creates permanent noise).
+⚠️ ALWAYS batch comments into ONE review. Never post multiple reviews (creates permanent timeline noise).
 
 Usage: uv run post-review <owner/repo> <pr> --input FILE --review-body TEXT [options]
 
-RECOMMENDED (for 2+ comments):
-  --input FILE          Read full review payload from JSON file
+RECOMMENDED:
+  --input FILE          Read review payload from JSON (batch multiple comments)
   --review-body TEXT    Review summary (required)
   --event TYPE          COMMENT (default), APPROVE, REQUEST_CHANGES
 
-Single comment only (use sparingly):
-  --path P              File path for single inline comment
+Single comment (use sparingly):
+  --path P              File path
   --position N          Diff position (from get-positions)
-  --body-file FILE      Read comment body from file (RECOMMENDED)
-  --body TEXT           Comment body directly (discouraged - use --body-file)
+  --body-file FILE      Read body from file (review before posting)
+  --body TEXT           Inline body (discouraged; ≥10 words except LGTM, Approved, Done, Fixed, Acknowledged)
 
-⚠️ GUIDELINES:
-- For multiple comments: Use --input FILE (one review, clean history)
-- For single comments: Use --body-file (review text before posting)
-- Inline --body is for quick one-liners only (min 10 words)
-- Multiple inline comments will ERROR (use --input)
+Guidelines:
+- Batch via --input FILE (clean PR history)
+- Single comment via --body-file (reviewable)
+- Inline --body only for quick status: LGTM, Approved, etc.
+- Multiple inline comments = ERROR (use --input)
 
 Examples:
-  ✓ RECOMMENDED - Batch multiple comments:
-    uv run scan-violations owner/repo 42 --output review.json
-    uv run post-review owner/repo 42 \\
-      --input review.json \\
-      --review-body "Checklist review - 5 items need attention" \\
-      --event REQUEST_CHANGES
+  # Batch (recommended)
+  uv run post-review owner/repo 42 --input review.json --review-body "Review" --event REQUEST_CHANGES
 
-  ✓ OK - Single comment from file:
-    echo "Add useCallback here to prevent unnecessary re-renders..." > comment.md
-    uv run post-review owner/repo 42 \\
-      --path src/hooks.ts --position 42 \\
-      --body-file comment.md \\
-      --review-body "Performance suggestion"
+  # Single from file
+  uv run post-review owner/repo 42 --path X.ts --position 5 --body-file comment.md --review-body "Nit"
 
-  △ Discouraged - Inline body (quick one-liners only):
-    uv run post-review owner/repo 42 \\
-      --path src/hooks.ts --position 42 \\
-      --body "LGTM" \\
-      --review-body "Approved"
-
-  ✗ NOT SUPPORTED - Multiple inline comments:
-    uv run post-review owner/repo 42 \\
-      --path a.ts --position 1 --body "Fix A" \\
-      --path b.ts --position 2 --body "Fix B"  # ← Will ERROR
-
-Comment guidelines:
-- Use --body-file for substantive comments (review before posting)
-- Use --body only for quick responses: LGTM, Approved, +1, etc.
-- Minimum 10 words for inline --body (except allowed short responses)
-- Review body: "LGTM", "Approved", or 3+ word summary
+  # Single quick (opt-in to separate review entry)
+  uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X.ts --position 5 --body "LGTM" --review-body "Approved"
 """
 
 import argparse
@@ -130,23 +108,24 @@ def main():
         help="Review type",
     )
     parser.add_argument("--input", help="Read full payload from file (recommended for batch reviews)")
-    parser.add_argument("--force-short", action="store_true", help="Allow short comments (discouraged)")
+    parser.add_argument("--i-know-this-creates-separate-review", action="store_true", help="Opt-in to create separate GitHub review entry (anti-pattern)")
     args = parser.parse_args()
 
-    # Warn about inline usage (discourage single comments, encourage batching)
+    # Single comment reviews require explicit opt-in
     using_inline = args.path or args.position or args.body
-    if using_inline and not args.input:
-        console.print("[yellow]⚠️  WARNING: Using inline comment flags creates a review with few comments.[/yellow]")
-        console.print("[yellow]   This creates permanent timeline noise. Consider using --input FILE to batch comments.[/yellow]")
-        console.print("[dim]   Example: uv run scan-violations owner/repo 42 --output review.json[/dim]")
-        console.print("[dim]            uv run post-review owner/repo 42 --input review.json --review-body '...'[/dim]")
-        console.print()
+    if using_inline and not args.input and not args.i_know_this_creates_separate_review:
+        console.print("[red]Error: Single comment reviews create separate GitHub review entries (clutters PR history).[/red]")
+        console.print("[dim]   Option 1: Use --input FILE to batch multiple comments (recommended):[/dim]")
+        console.print("[dim]     uv run scan-violations owner/repo 42 --output review.json[/dim]")
+        console.print("[dim]     uv run post-review owner/repo 42 --input review.json --review-body '...'[/dim]")
+        console.print("[dim]   Option 2: Use --i-know-this-creates-separate-review to explicitly accept the anti-pattern:[/dim]")
+        console.print("[dim]     uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X --position N --body 'LGTM'[/dim]")
+        sys.exit(1)
 
     # Validate comment word count (discourage short comments, allow common short responses)
     allowed_short_responses = frozenset({
         "lgtm", "looks good", "looks good to me", "approved", "approve",
-        "+1", "👍", "🚀", "nice", "great", "good job", "well done",
-        "done", "fixed", "resolved", "ack", "acknowledged", "thanks",
+        "done", "fixed", "resolved", "ack", "acknowledged",
     })
     min_words = 10
 
@@ -160,20 +139,20 @@ def main():
 
     def validate_comment_words(text: str, context: str, min_words_req: int = min_words) -> bool:
         word_count = count_words(text)
-        if word_count < min_words_req and not is_allowed_short(text) and not args.force_short:
+        if word_count < min_words_req and not is_allowed_short(text):
             console.print(f"[yellow]⚠️  {context} is very short ({word_count} words, min {min_words_req})[/yellow]")
             console.print(f"[dim]   Text: '{text[:60]}{'...' if len(text) > 60 else ''}'[/dim]")
-            console.print("[dim]   Short responses allowed: LGTM, Approved, Looks good, +1, etc.[/dim]")
+            console.print("[dim]   Short responses allowed: LGTM, Approved, Done, Fixed, Acknowledged, etc.[/dim]")
             console.print("[dim]   Or add context: explain WHY the change is needed, not just WHAT.[/dim]")
             return False
         return True
 
     # Check review body word count (review body can be shorter - min 3 words or allowed short)
     review_word_count = count_words(args.review_body)
-    if review_word_count < 3 and not is_allowed_short(args.review_body) and not args.force_short:
+    if review_word_count < 3 and not is_allowed_short(args.review_body):
         console.print(f"[yellow]⚠️  Review body is very short ({review_word_count} words)[/yellow]")
         console.print("[dim]   Hint: Use 'LGTM', 'Approved', or a brief summary of the review.[/dim]")
-        console.print("[red]Error: Review body too short. Use --force-short to override.[/red]")
+        console.print("[red]Error: Review body too short.[/red]")
         sys.exit(1)
 
     # Build comments
@@ -199,23 +178,13 @@ def main():
 
         comments = build_comments_from_flags(args.path, args.position, [body])
 
-    # Warn if using --body instead of --body-file (discourage inline text)
-    if args.body and not args.body_file and not args.force_short:
-        console.print("[yellow]⚠️  Using --body with inline text (discouraged).[/yellow]")
-        console.print("[dim]   For better reviewability, write comment to file and use --body-file:[/dim]")
-        console.print("[dim]     echo 'Your detailed comment here' > comment.md[/dim]")
-        console.print("[dim]     uv run post-review ... --body-file comment.md[/dim]")
-        console.print("[yellow]   Use --force-short to skip this warning (discouraged).[/yellow]")
-        console.print()
-
     # Only allow single inline comment - use --input FILE for multiple comments
-    if using_inline and len(comments) > 1 and not args.force_short:
+    if using_inline and len(comments) > 1:
         console.print(f"[red]Error: Attempting to post {len(comments)} comments via inline flags.[/red]")
         console.print("[yellow]   Inline flags only support SINGLE comments.[/yellow]")
         console.print("[dim]   For multiple comments, use --input FILE to batch into ONE review:[/dim]")
         console.print("[dim]     uv run scan-violations owner/repo 42 --output review.json[/dim]")
         console.print("[dim]     uv run post-review owner/repo 42 --input review.json --review-body '...'[/dim]")
-        console.print("[yellow]   Use --force-short to override (creates timeline noise).[/yellow]")
         sys.exit(1)
 
     # Validate comment word counts
@@ -226,13 +195,13 @@ def main():
         if word_count < min_words and not is_allowed_short(body_text):
             short_comments.append((i, body_text[:60], word_count))
 
-    if short_comments and not args.force_short:
+    if short_comments:
         console.print(f"[yellow]⚠️  Found {len(short_comments)} short comment(s):[/yellow]")
         for idx, preview, words in short_comments:
             console.print(f"  [dim]Comment {idx} ({words} words): '{preview}{'...' if len(preview) >= 60 else ''}'[/dim]")
         console.print("[yellow]   Comments should explain WHY (not just WHAT) to help the author learn.[/yellow]")
-        console.print("[dim]   Allowed short responses: LGTM, Approved, Looks good, +1, etc.[/dim]")
-        console.print("[red]Error: Use --force-short to post anyway (discouraged).[/red]")
+        console.print("[dim]   Allowed short responses: LGTM, Approved, Done, Fixed, Acknowledged, etc.[/dim]")
+        console.print("[red]Error: Comment quality check failed.[/red]")
         sys.exit(1)
 
     # Fetch head commit

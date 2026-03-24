@@ -1,30 +1,26 @@
 #!/usr/bin/env python3
-"""
-build_review.py — Build GitHub review payload incrementally.
+"""build-review — Build GitHub review payload incrementally.
 
-Usage: ./scripts/build_review.py [options]
+Usage: uv run build-review [options]
 
 Options:
   --file FILE          Payload file (default: review_payload.json)
-  --path P             File path for comment
-  --position N         Diff position (use get_positions.sh to get)
+  --path P             File path
+  --position N         Diff position (from get-positions)
   --body TEXT          Comment body
-  --body-file FILE     Read body from file (for complex markdown)
+  --body-file FILE     Read body from file
   --show               Display current payload
-  --export-comments    Output comments array (for piping)
+  --export-comments    Output comments array for piping
   --clear              Clear all comments
-  --post REPO PR       Post review (requires gh CLI)
-  --review-body TEXT   Review summary (default: "Review from checklist")
+  --post REPO PR       Post review
+  --review-body TEXT   Review summary
   --event TYPE         COMMENT (default), APPROVE, REQUEST_CHANGES
 
 Examples:
-  ./build_review.py --path src/hooks.ts --position 42 --body "Add useCallback"
-  ./build_review.py --path src/hooks.ts --position 42 --body-file comment.md
-  ./build_review.py --show
-  ./build_review.py --post owner/repo 42 --review-body "Checklist review" --event REQUEST_CHANGES
-  ./build_review.py --export-comments | ./gh_post_review.sh owner/repo 42 --comments-json -
-
-Position: Use get_positions.sh to convert file:line to diff position.
+  uv run build-review --path src/hooks.ts --position 42 --body-file comment.md
+  uv run build-review --show
+  uv run build-review --post owner/repo 42 --review-body "Review" --event REQUEST_CHANGES
+  uv run build-review --export-comments | uv run post-review owner/repo 42 --input -
 """
 
 import argparse

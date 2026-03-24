@@ -2,35 +2,21 @@
 
 Perform a checklist-based code review and post **batched** comments.
 
-## Core Intentions (Why We Built It This Way)
+## Core Principles
 
-### 1. File-First Workflow
-**Intention:** Comments should be reviewable before posting.  
-**Why:** Once posted to GitHub, review comments are permanent. You should be able to read, edit, and validate your feedback before it goes live.
+| Principle | Why | Enforcement |
+|-----------|-----|-------------|
+| **File-first** | GitHub comments are permanent—review before posting | `--input FILE` required for batch |
+| **Batching** | One review per PR, not one per comment (permanent timeline noise) | Inline multiple comments errors |
+| **No inline `--body`** | Hard to write, easy to break quotes, can't review | `--body-file` preferred |
+| **Explain WHY** | Teach the consequence so author learns | ≥10 words (except LGTM, Approved, Done, Fixed, Acknowledged) |
 
-### 2. Batching is Mandatory  
-**Intention:** One review per PR, not one review per comment.  
-**Why:** GitHub creates **permanent timeline entries** for each review. Posting 5 separate reviews creates 5 timeline entries that clutter history forever.
+| ✗ Don't | ✓ Do |
+|---------|------|
+| "Add dependency" | "Missing 'onChange' causes stale closure when prop updates" |
+| "Fix type" | "Returns Promise<void> but caller expects User[]. Match interface." |
 
-### 3. Discourage Inline Command-Line Comments
-**Intention:** Substantive comments should come from files, not command-line arguments.  
-**Why:** `--body "long text here"` is hard to write, easy to mess up quotes, and impossible to review. Write to a file, review it, then post.
-
----
-
-> ⚠️ **CRITICAL: Always batch comments into ONE review.**  
-> GitHub creates **permanent timeline entries** for each review. Posting comments one at a time creates noise that can't be undone.
-
-## When to Use This
-
-- Reviewing a teammate's PR against your checklist
-- Want to auto-detect common violations before manual review
-- **Batching multiple inline comments** into a single review (recommended)
-- ⚠️ Avoid: Posting single comments (creates permanent timeline noise)
-
-## The Golden Rule: File First, Then Post
-
-**✓ ALWAYS:** Save comments to file, review, then post:
+## The Workflow: File First, Then Post
 ```bash
 # STEP 1: Build/scan and SAVE TO FILE
 uv run scan-violations owner/repo 42 \
@@ -47,22 +33,11 @@ uv run post-review owner/repo 42 \
     --event REQUEST_CHANGES
 ```
 
-**✗ NEVER:** Skip the file step or post multiple times:
-```bash
-# WRONG: Immediate post (no chance to review)
-uv run scan-violations owner/repo 42 --post
+**Avoid:** Immediate post, multiple reviews (timeline spam), or piping inline.
 
-# WRONG: Multiple separate reviews (timeline spam)
-uv run post-review ... --path a.ts --body "Fix A"
-uv run post-review ... --path b.ts --body "Fix B"
+## Workflows
 
-# WRONG: Piping inline (hard to review, easy to mess up)
-uv run post-review ...
-```
-
-## Workflow
-
-### Option A: Auto-Scan for Violations (Recommended First Step)
+### A. Auto-Scan (Recommended)
 
 ```bash
 # 1. Preview what the tool finds
@@ -81,48 +56,27 @@ uv run post-review owner/repo 42 \
     --event REQUEST_CHANGES
 ```
 
-**Built-in detection:**
+**Built-in detection:** Missing deps, floating promises, `as any`, barrel imports, missing `img alt`, file-level eslint-disable, manual URL concat.
 
-- Missing useEffect/useCallback dependency arrays
-- Floating promises (not awaited)
-- File-level eslint-disable
-- `as any` type casts
-- Barrel imports (from index.ts)
-- Missing img alt attributes
-- Manual URL string concatenation
-
-### Option B: Manual Review with Position Helper
-
-For issues the auto-scanner doesn't catch:
+### B. Manual (for auto-scanner misses)
 
 ```bash
-# 1. Identify issue at file:line (e.g., src/hooks.ts line 45)
-# 2. Get diff position
-uv run get-positions owner/repo 42 src/hooks.ts:45
-# Output: src/hooks.ts:45 → position 127
-
-# 3. Post single comment
+# Convert file:line to diff position, then post
+uv run get-positions owner/repo 42 src/hooks.ts:45  # → position 127
 uv run post-review owner/repo 42 \
     --path src/hooks.ts --position 127 \
     --body "Add useCallback here" \
     --review-body "Performance suggestion"
 ```
 
-### Option C: Build Review Incrementally
-
-For complex reviews built over multiple passes:
+### C. Incremental Build (complex reviews)
 
 ```bash
-# Add comments as you find them
+# Add comments over time
 uv run build-review --path src/a.ts --position 42 --body "Fix A"
 uv run build-review --path src/b.ts --position 15 --body-file comment_b.md
-
-# Preview before posting
-uv run build-review --show
-
-# Post when ready
-uv run build-review --post owner/repo 42 \
-    --review-body "Checklist review" --event REQUEST_CHANGES
+uv run build-review --show      # Preview
+uv run build-review --post owner/repo 42 --review-body "Review" --event REQUEST_CHANGES
 ```
 
 ## Tool Reference
@@ -152,53 +106,19 @@ uv run scan-violations owner/repo 42 \
 # Then: uv run post-review ... --input review.json
 ```
 
-**Options:**
-
-- `--checklist FILE` — Use custom checklist (default: built-in patterns)
-- `--file-pattern P` — Only scan files matching regex (multiple OK)
-- `--output FILE` — Save review payload to JSON
-- `--dry-run` — Preview violations without generating payload
-- `--post` — Post review directly
-- `--review-body TEXT` — Review summary (default: "Automated checklist review")
-
-**Output payload format:**
-
-```json
-{
-  "commit_id": "abc123...",
-  "body": "Review summary",
-  "event": "COMMENT",
-  "comments": [
-    { "path": "src/file.ts", "position": 42, "body": "**Rule**\\n\\nMessage" }
-  ]
-}
-```
+**Options:** `--checklist FILE`, `--file-pattern P`, `--output FILE`, `--dry-run`, `--post`
 
 ### get-positions
 
-Convert file:line to GitHub diff position.
+Convert file:line to GitHub diff position (required for API).
 
 ```bash
-# Single reference
-uv run get-positions owner/repo 42 src/hooks.ts:45
-
-# Multiple references
 uv run get-positions owner/repo 42 src/hooks.ts:45 src/utils.ts:12
+# Output: src/hooks.ts:45 → position 127
 
-# From file (one per line, # comments OK)
-cat > refs.txt << 'EOF'
-src/hooks.ts:45
-src/utils.ts:12
-EOF
+# From file (one per line)
 uv run get-positions owner/repo 42 --file refs.txt
-
-# JSON output for scripting
-uv run get-positions owner/repo 42 src/hooks.ts:45 --json
 ```
-
-**Output:** `src/hooks.ts:45 → position 127`
-
-**Why needed:** GitHub API requires diff position (line in unified diff from `@@` header), not file line number.
 
 ### post-review
 
@@ -233,65 +153,22 @@ uv run post-review owner/repo 42 \
 EOF
 ```
 
-**Event types:** `COMMENT` (default), `APPROVE`, `REQUEST_CHANGES`
-
-**Rules:**
-
-- Always batch comments into one call
-- Never post comments one at a time (creates permanent timeline noise)
+**Events:** `COMMENT` (default), `APPROVE`, `REQUEST_CHANGES`
 
 ### build-review
 
-Build review payload incrementally.
+Build review incrementally.
 
 ```bash
-# Add comments
 uv run build-review --path src/a.ts --position 5 --body "Fix A"
-uv run build-review --path src/b.ts --position 10 --body-file complex.md
-
-# View current payload
-uv run build-review --show
-
-# Post
+uv run build-review --show                    # Preview
 uv run build-review --post owner/repo 42 \
     --review-body "Review" --event REQUEST_CHANGES
-
-# Or export for post-review
-uv run build-review --export-comments | \
-    uv run post-review owner/repo 42
 ```
 
-**Options:**
+**Options:** `--file`, `--path`, `--position`, `--body`, `--body-file`, `--show`, `--export-comments`, `--clear`, `--post`
 
-- `--file FILE` — Payload file (default: review_payload.json)
-- `--path P`, `--position N`, `--body TEXT` — Add comment
-- `--body-file FILE` — Read body from file
-- `--show` — Display current payload
-- `--export-comments` — Output comments array only
-- `--clear` — Clear all comments
-- `--post REPO PR` — Post review
-- `--review-body TEXT` — Review summary
-- `--event TYPE` — COMMENT, APPROVE, REQUEST_CHANGES
-
-## Position vs Line Number
-
-GitHub API needs **diff position**, not file line number:
-
-```
-File line 45                    ← What you see in editor
-       ↓
-  get-positions
-       ↓
-Diff position 127               ← What GitHub API needs
-```
-
-**Workflow:**
-
-1. Find issue at `src/hooks.ts:45`
-2. Run `./get-positions owner/repo 42 src/hooks.ts:45` → outputs `position 127`
-3. Use `--position 127` in `post-review`
-
-## Complete Examples
+## Examples
 
 **Example 1: Auto-scan workflow**
 
@@ -332,4 +209,19 @@ uv run build-review --path src/utils.ts --position 42 --body-file complex_sugges
 # ... when done ...
 uv run build-review --show
 uv run build-review --post owner/repo 42 --review-body "Review" --event REQUEST_CHANGES
+```
+
+**Example 4: Approve a PR**
+
+```bash
+# Pure approval (no inline comments)
+uv run post-review owner/repo 42 \
+    --review-body "LGTM" \
+    --event APPROVE
+
+# Approve with minor comments (batched)
+uv run post-review owner/repo 42 \
+    --input review.json \
+    --review-body "Approved with nits" \
+    --event APPROVE
 ```

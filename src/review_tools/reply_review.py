@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
 """reply-review — Reply to and react on PR review comments.
 
-Usage: uv run reply-review <owner/repo> <pr> <command> [options]
+Usage: uv run reply-review <owner/repo> <pr> [command] [options]
 
 Commands:
-  --list                      List all review comments with IDs
-  <comment_id> "message"      Reply to single comment
-  <comment_id> --react <e>    React to single comment
-  --reply-all [opts]          Reply to all comments (skips your own)
-  --react-all <emoji>         React to all comments (skips your own)
+  --list                 List comments with IDs
+  <comment_id> "msg"     Reply to single comment
+  <comment_id> --react E React to single comment
+  --reply-all            Reply to all (skips your own)
+  --react-all E          React to all (skips your own)
 
 Options:
-  --prefix TEXT    Prefix for --reply-all messages
-  --suffix TEXT    Suffix for --reply-all messages
+  --prefix TEXT          Prefix for --reply-all
+  --suffix TEXT          Suffix for --reply-all
 
 Emojis: +1, -1, laugh, confused, heart, hooray, eyes, rocket
 
 Examples:
   uv run reply-review owner/repo 45 --list
-  uv run reply-review owner/repo 45 1234567890 "Fixed!"
-  uv run reply-review owner/repo 45 1234567890 "Handled" --react +1
+  uv run reply-review owner/repo 45 1234567890 "Fixed"
   uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed"
   uv run reply-review owner/repo 45 --react-all eyes
+
+Reply quality: "Done" (simple), "Extracted to helper" (complex), or ask for clarification.
+Avoid: Commit SHAs (break on rebase), vague "OK", reacting when code changes needed.
 """
 
 import argparse

@@ -1,33 +1,28 @@
 #!/usr/bin/env python3
-"""
-scan_for_violations.py — Scan PR diff for checklist violations.
+"""scan-violations — Scan PR diff for checklist violations.
 
-Usage: uv run scripts/scan_for_violations.py <owner/repo> <pr> [options]
+Usage: uv run scan-violations <owner/repo> <pr> [options]
 
 Options:
-  --checklist FILE     Path to checklist (default: built-in patterns)
-  --file-pattern P     Scan only files matching regex pattern (multiple OK)
+  --checklist FILE     Custom checklist (default: built-in patterns)
+  --file-pattern P     Scan only files matching regex (multiple OK)
   --output FILE        Save review payload to JSON
-  --dry-run            Preview violations without generating payload
-  --post               Post review directly (caution!)
-  --review-body TEXT   Review summary (default: "Automated checklist review")
+  --dry-run            Preview violations
+  --post               Post directly (caution: skips file review)
+
+Built-in: useEffect/useCallback deps, floating promises, eslint-disable, 'as any',
+barrel imports, missing img alt, URL concat.
+
+Custom rules via checklist tags:
+  - [ ] **Rule** — description
+    @detect: regex|alt_pattern  @anti: exclude_pattern  @msg: message  @fix: how to fix
 
 Examples:
-  uv run scripts/scan_for_violations.py owner/repo 42 --dry-run
-  uv run scripts/scan_for_violations.py owner/repo 42 --checklist docs/checklist.md --output review.json
-  uv run scripts/scan_for_violations.py owner/repo 42 --file-pattern "*.tsx" --file-pattern "*.ts"
+  uv run scan-violations owner/repo 42 --dry-run
+  uv run scan-violations owner/repo 42 --checklist docs/checklist.md --output review.json
+  uv run scan-violations owner/repo 42 --file-pattern "*.tsx" --output review.json
 
-Built-in detection: useEffect deps, useCallback deps, floating promises,
-eslint-disable, 'as any' casts, barrel imports, missing img alt, URL concat.
-
-Custom rules: Add @detect/@anti/@msg/@fix tags to checklist items:
-  - [ ] **Rule** — description
-    @detect: regex_pattern|alt_pattern
-    @anti: exclusion_pattern (optional)
-    @msg: Violation message
-    @fix: How to fix
-
-Requires: gh CLI authenticated
+⚠️ Always review --output file before posting. Never use --post without review.
 """
 
 import argparse

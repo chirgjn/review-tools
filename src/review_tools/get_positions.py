@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """get-positions — Convert file:line to GitHub diff position.
 
-GitHub API requires "position" (line in unified diff), not file line number.
+GitHub API uses "position" (line in unified diff @@ header), not file line number.
 
 Usage: uv run get-positions <owner/repo> <pr> <file:line>... [options]
 
@@ -13,10 +13,7 @@ Options:
 Examples:
   uv run get-positions owner/repo 42 src/hooks.ts:45
   uv run get-positions owner/repo 42 --file refs.txt
-  uv run get-positions owner/repo 42 src/hooks.ts:45 --json
-
-Position: Line number in unified diff (from @@ hunk header, 1-indexed).
-Use output for gh-post-review --position.
+  uv run get-positions owner/repo 42 src/hooks.ts:45 src/utils.ts:12 --json
 """
 
 import argparse

@@ -1,67 +1,29 @@
 # Workflow: Respond to Review Comments on Your PR
 
-Reply to and react on review comments left on your PR.
-
-## When to Use This
-
-- Addressing feedback on your own PR
-- Bulk-acknowledging review comments
-- Adding reactions to show you've seen comments
+Reply to and react on review feedback.
 
 ## Workflow
 
-### Step 1: List Comments to See What Needs Response
+### 1. List Comments
 
 ```bash
 uv run reply-review owner/repo 45 --list
 ```
 
-**Output:**
+Shows: ID, file, line, author, preview.
 
-```
-3 Review Comments
-┌────────────┬─────────────────┬──────┬──────────┬────────────────────────────┐
-│ ID         │ File            │ Line │ Author   │ Body Preview               │
-├────────────┼─────────────────┼──────┼──────────┼────────────────────────────┤
-│ 2983284330 │ src/hooks.ts    │ 42   │ reviewer │ Add useCallback here for...│
-│ ...        │ ...             │ ...  │ ...      │ ...                        │
-└────────────┴─────────────────┴──────┴──────────┴────────────────────────────┘
-```
+### 2. Respond
 
-### Step 2: Respond to Comments
-
-**Option A: Reply to specific comments**
-
+**Single:**
 ```bash
-# Simple reply
-uv run reply-review owner/repo 45 2983284330 "Fixed in commit abc123"
-
-# Reply with reaction
+uv run reply-review owner/repo 45 2983284330 "Fixed"
 uv run reply-review owner/repo 45 2983284330 "Handled" --react +1
-
-# Just react (no text)
 uv run reply-review owner/repo 45 2983284330 --react eyes
 ```
 
-**Option B: Bulk reply to all comments**
-
+**Bulk (skips your own):**
 ```bash
-# Reply to all with same prefix (skips your own comments)
 uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed"
-
-# With prefix and suffix
-uv run reply-review owner/repo 45 --reply-all \
-    --prefix "✅ Handled" \
-    --suffix "Please re-review"
-```
-
-**Option C: Bulk react to all comments**
-
-```bash
-# React 👍 to all review comments
-uv run reply-review owner/repo 45 --react-all +1
-
-# React 👀 to show you're reviewing
 uv run reply-review owner/repo 45 --react-all eyes
 ```
 
@@ -104,6 +66,19 @@ uv run reply-review owner/repo 45 --react-all +1
 - Replies appear as threaded responses under original comment
 - Reactions are idempotent (reacting twice = same as once)
 
+## Reply Quality
+
+Help reviewers verify fixes quickly:
+
+| Situation | Reply |
+|-----------|-------|
+| Simple fix | "Done", "Fixed", "Resolved" |
+| Complex | "Extracted to helper as suggested" |
+| Deferred | "Will fix in follow-up PR - tracked in #123" |
+| Unclear | Ask for clarification |
+
+**Avoid:** Commit SHAs (break on rebase), vague "OK", reacting when code changes are needed.
+
 ## Common Patterns
 
 **Pattern 1: Acknowledge all feedback quickly**
@@ -139,33 +114,26 @@ uv run reply-review owner/repo 45 3333333333 "Discussed offline - resolving"
 
 ## Troubleshooting
 
-| Error                              | Fix                           |
-| ---------------------------------- | ----------------------------- |
-| "GitHub CLI not authenticated"     | Run `gh auth login`           |
+| Error | Fix |
+|-------|-----|
+| "GitHub CLI not authenticated" | `gh auth login` |
 | "Could not determine current user" | Token needs `read:user` scope |
 
-## Complete Example
+## Example
 
 ```bash
-# 1. See what needs response
+# Acknowledge
 uv run reply-review owner/repo 45 --list
-
-# 2. Acknowledge with reactions
 uv run reply-review owner/repo 45 --react-all eyes
 
-# 3. Fix issues, commit
+# After fixes
+uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed" --suffix "PTAL"
 
-# 4. Reply to all with resolution status
-uv run reply-review owner/repo 45 --reply-all \
-    --prefix "✅ Fixed in commit abc123" \
-    --suffix "Please re-review"
-
-# 5. If some items deferred, reply individually
-uv run reply-review owner/repo 45 9876543210 \
-    "Will address in follow-up PR - tracked in issue #123"
+# Deferred items
+uv run reply-review owner/repo 45 9876543210 "Will address in follow-up PR - tracked in #123"
 ```
 
-## Difference from Posting Reviews
+## vs Posting Reviews
 
 |               | This Workflow                    | Posting Reviews                      |
 | ------------- | -------------------------------- | -------------------------------------|

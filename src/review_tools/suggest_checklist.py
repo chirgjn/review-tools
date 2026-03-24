@@ -1,31 +1,25 @@
 #!/usr/bin/env python3
-"""
-suggest_checklist_updates.py — Analyze review patterns and suggest checklist updates.
+"""suggest-checklist — Analyze review patterns and suggest checklist updates.
 
-Usage: uv run scripts/pr_threads.py ... | uv run scripts/suggest_checklist_updates.py [options]
+Usage: uv run pr-threads ... | uv run suggest-checklist [options]
 
-Input Format: Expects output from pr_threads.py:
-  Thread: path/to/file:line
-    id=... repo=... pr=... commit=...
-    [id=...] @author:
-      Comment body line 1
-      Comment body line 2
+Input: Output from pr-threads (Thread: path:line, id=..., @author: body)
 
 Options:
-  --input FILE         Read from file instead of stdin
+  --input FILE         Read from file (default: stdin)
   --threshold N        Min frequency to suggest (default: 3)
-  --checklist FILE     Compare against existing checklist (deduplicate)
-  --apply              Actually modify checklist (default: dry-run)
+  --checklist FILE     Compare against existing (deduplicate)
+  --apply              Modify checklist (default: dry-run)
   --new-only           Show only new suggestions
-  --output FILE        Save report to file
+  --output FILE        Save report
 
 Examples:
-  uv run scripts/pr_threads.py owner/repo#35 owner/repo#36 --all | uv run scripts/suggest_checklist_updates.py
-  uv run scripts/pr_threads.py owner/repo#35 --all | uv run scripts/suggest_checklist_updates.py --threshold 5
-  uv run scripts/suggest_checklist_updates.py --input threads.txt --checklist docs/review-checklist.md
-  uv run scripts/suggest_checklist_updates.py --input threads.txt --checklist docs/checklist.md --apply
+  uv run pr-threads owner/repo#35 owner/repo#36 --all | uv run suggest-checklist
+  uv run suggest-checklist --input threads.txt --checklist docs/checklist.md --new-only
+  uv run suggest-checklist --input threads.txt --checklist docs/checklist.md --apply
 
 Output: Keyword clusters, categories, and suggested checklist items.
+Rule of thumb: Only add patterns appearing 3+ times across multiple PRs.
 """
 
 import argparse

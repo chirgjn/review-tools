@@ -1,33 +1,19 @@
 # Workflow: Analyze PR Patterns → Update Checklist
 
-Extract recurring themes from past PR reviews to update your checklist.
-
-## When to Use This
-
-- After reviewing several PRs and noticing repeated feedback
-- When onboarding new reviewers and need documented standards
-- To codify implicit team knowledge into explicit rules
+Extract recurring themes from past PR reviews.
 
 ## Workflow
 
-### Step 1: Fetch Comments from Multiple PRs
+### 1. Fetch Comments (3-5 PRs, mix recent + older)
 
 ```bash
-# Analyze 3-5 PRs at once (mix of recent and older for variety)
 uv run pr-threads owner/repo#35 owner/repo#36 owner/repo#37 --all
-
-# Save to file for analysis
-uv run pr-threads owner/repo#35 owner/repo#36 --all > threads.txt
+uv run pr-threads owner/repo#35 owner/repo#36 --all > threads.txt  # Save to file
 ```
 
-**Tips:**
+**Tips:** `--all` (all reviewers), `--file-pattern .tsx` (filter files), `--body-filter useCallback` (filter themes)
 
-- Use `--all` to see all reviewers (not just your comments)
-- Use `--file-pattern hooks.ts` to focus on specific file types (output can be piped to `suggest-checklist`)
-- Use `--body-filter "useCallback"` to find specific themes
-- Pipe directly to `suggest-checklist` or save to file with `--input`
-
-### Step 2: Analyze for Recurring Patterns
+### 2. Analyze Patterns
 
 ```bash
 # Basic analysis - pipe directly from pr_threads to analyzer
@@ -48,7 +34,7 @@ uv run pr-threads owner/repo#35 owner/repo#36 --all | \
 uv run suggest-checklist --input threads.txt --threshold 5
 ```
 
-### Step 3: Review Suggestions and Update Checklist
+### 3. Update Checklist
 
 The analysis outputs:
 
@@ -74,17 +60,11 @@ SUGGESTED UPDATES
 [8 comments] React Hooks: useeffect, dependency, exhaustive
 ```
 
-Add to `docs/review-checklist.md`:
+Add to checklist: `- [ ] useEffect has exhaustive deps — add all dependencies or document why empty`
 
-```markdown
-## React Hooks
+**Rule of thumb:** Only add patterns appearing 3+ times.
 
-- [ ] **`useEffect` has exhaustive deps** — add all dependencies or document why empty
-```
-
-**Rule of thumb:** Only add patterns appearing 3+ times across multiple PRs.
-
-## Tool Reference
+## Tools
 
 ### pr-threads
 
@@ -113,22 +93,7 @@ uv run pr-threads owner/repo#35 --comments 1234567890
 uv run pr-threads owner/short#3 --slug-map short=owner/full-repo
 ```
 
-**Output format (compatible with `suggest-checklist`):**
-
-```
-Thread: src/hooks.ts:45
-  id=1234567890 repo=owner/repo pr=35 commit=abc1234
-  URL: https://github.com/...
-  [id=1234567890] @reviewer:
-    Add useCallback here for performance
-
-File: src/utils.ts:12
-  id=1234567891 repo=owner/repo pr=35 commit=abc1234
-  [id=1234567891] @reviewer:
-    Check dependency array
-```
-
-Both `Thread:` and `File:` formats are parsed correctly by `suggest-checklist`.
+**Output format:** `Thread:` or `File:` lines, compatible with `suggest-checklist`.
 
 ### suggest-checklist
 
@@ -154,22 +119,11 @@ uv run suggest-checklist --input threads.txt \
     --output analysis.txt
 ```
 
-**Options:**
+**Options:** `--threshold N` (default: 3), `--checklist FILE`, `--new-only`, `--apply`
 
-- `--threshold N` — Minimum frequency to suggest (default: 3)
-- `--checklist FILE` — Compare against existing checklist
-- `--new-only` — Show only suggestions not in checklist
-- `--apply` — Actually modify checklist (default: dry-run)
+**How it works:** Extracts keywords → clusters → categorizes → ranks by frequency → suggests.
 
-**How it works:**
-
-1. Extracts keywords and 2-3 word phrases
-2. Clusters terms that appear together
-3. Auto-categorizes (React Hooks, ESLint, TypeScript, etc.)
-4. Ranks by frequency
-5. Suggests new checklist items
-
-## Complete Example
+## Example
 
 ```bash
 # 1. Fetch comments from 5 recent PRs and analyze in one pipeline

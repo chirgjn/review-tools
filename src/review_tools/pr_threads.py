@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
-"""
-pr_threads.py — Fetch PR review threads for pattern analysis.
+"""pr-threads — Fetch PR review threads for pattern analysis.
 
-Usage: uv run scripts/pr_threads.py <refs> [options]
+Usage: uv run pr-threads <refs> [options]
 
 Refs: https://github.com/owner/repo/pull/35 | owner/repo#35 | owner/slug#35
 
 Options:
-  --all                Show all reviewers (default: your comments only)
-  --reviewer LOGIN     Filter to specific reviewer (@me = yourself)
-  --file-pattern P     Show comments on files matching P (with diff context)
+  --all                All reviewers (default: yours only)
+  --reviewer LOGIN     Filter to reviewer (@me = you)
+  --file-pattern P     Filter files matching P (with diff context)
   --body-filter TEXT   Filter comments containing TEXT
-  --comments ID [ID..] Inspect specific comment IDs
-  --slug-map K=V       Expand slugs (e.g., wallet=owner/wallet-frontend)
+  --comments ID...     Inspect specific comment IDs
+  --slug-map K=V       Expand slugs (e.g., short=owner/full-repo)
 
 Examples:
-  uv run scripts/pr_threads.py owner/repo#35 owner/repo#36
-  uv run scripts/pr_threads.py owner/repo#35 --all --file-pattern hooks.ts
-  uv run scripts/pr_threads.py owner/repo#35 --body-filter "useCallback"
-  uv run scripts/pr_threads.py owner/repo#35 --all | uv run scripts/suggest_checklist_updates.py
+  uv run pr-threads owner/repo#35 owner/repo#36 --all
+  uv run pr-threads owner/repo#35 --all --file-pattern hooks.ts
+  uv run pr-threads owner/repo#35 --body-filter "useCallback" | uv run suggest-checklist
 
-Output: Threaded comments with id, path:line, commit, author, body.
-Pipe to suggest_checklist_updates.py for pattern analysis and checklist suggestions.
+Output: Threaded comments (id, path:line, commit, author, body). Pipe to suggest-checklist.
 """
 
 import argparse

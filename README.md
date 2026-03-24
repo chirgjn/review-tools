@@ -1,15 +1,12 @@
 # PR Review Checklist Generator
 
-Workflow toolkit for creating and maintaining code review checklists.
+**Philosophy:** File-first, batched code reviews with no timeline noise.
 
-## Why This Exists
-
-**Problem:** Code review feedback is often inconsistent, untracked, and creates permanent GitHub timeline noise when posted carelessly.
-
-**Solution:** A file-first workflow that:
-1. **Builds comments in files first** → review before posting (no permanent mistakes)
-2. **Batches into single reviews** → clean PR history (no timeline spam)
-3. **Enforces quality standards** → explain WHY not just WHAT
+| Principle | Why It Matters |
+|-----------|---------------|
+| **File-first** | Review your comments before posting. GitHub review comments are permanent—no undo without leaving dismissed timeline entries. |
+| **Batching** | One review per PR, not one per comment. Multiple reviews = permanent timeline clutter that can't be cleaned up. |
+| **Quality** | Comments explain WHY, not just WHAT. Minimum 10 words (except LGTM, Approved, etc.). |
 
 ## Installation
 
@@ -32,7 +29,7 @@ uv run pr-threads owner/repo#35 --all
 | **Extract patterns from past PRs** → update checklist | [analyze-patterns.md](docs/analyze-patterns.md)     |
 | **Review a PR** → post checklist-based comments       | [review-a-pr.md](docs/review-a-pr.md)               |
 | **Respond to reviews** → reply/react on my PR         | [respond-to-reviews.md](docs/respond-to-reviews.md) |
-| **Contribute/extend** the toolkit                     | [agent-guide.md](docs/agent-guide.md)               |
+| **Contribute/extend** the toolkit                     | [Code patterns](#development) below                 |
 
 ## Quick Examples
 
@@ -61,6 +58,16 @@ cat review.json | jq '.comments[] | {path, body}'
 
 # STEP 3: Post batched review
 uv run post-review owner/repo 42 --input review.json --review-body "Checklist review" --event REQUEST_CHANGES
+```
+
+**Approve a PR:**
+
+```bash
+# Pure approval
+uv run post-review owner/repo 42 --review-body "LGTM" --event APPROVE
+
+# Approve with minor comments
+uv run post-review owner/repo 42 --input nits.json --review-body "Approved with suggestions" --event APPROVE
 ```
 
 **Build complex reviews incrementally:**
@@ -103,6 +110,24 @@ uv run basedpyright src/
 # Format code
 uv run ruff format src/
 ```
+
+### Code Patterns
+
+**Performance:**
+- Pre-compile regex at module level
+- Use `functools.lru_cache` for API calls
+- Use `frozenset` for O(1) lookups
+
+**Error Handling:**
+- Use `rich.console` for colored output
+- Show helpful context, not just raw errors
+- Provide `--force-*` flags for user overrides
+
+**Adding Commands:**
+1. Follow `verb-noun` naming (e.g., `scan-violations`)
+2. Add entry point in `pyproject.toml`
+3. Use file-based patterns (read from `--input`, write to `--output`)
+4. Update this README with examples
 
 ## Requirements
 
