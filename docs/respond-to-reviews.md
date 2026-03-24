@@ -15,17 +15,20 @@ Shows: ID, file, line, author, preview.
 ### 2. Respond
 
 **Single:**
+
 ```bash
 uv run reply-review owner/repo 45 2983284330 "Fixed"
 uv run reply-review owner/repo 45 2983284330 "Handled" --react +1
 uv run reply-review owner/repo 45 2983284330 --react eyes
 ```
 
-**Bulk (skips your own):**
+**React to all (acknowledges feedback):**
+
 ```bash
-uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed"
 uv run reply-review owner/repo 45 --react-all eyes
 ```
+
+> **Note:** Avoid using `--reply-all` with generic prefixes like "✅ Fixed". Match reply quality to complexity — use individual replies with specific context like "Extracted to helper" for complex changes.
 
 ## Tool Reference
 
@@ -46,8 +49,8 @@ uv run reply-review owner/repo 45 <comment_id> "Handled" --react +1
 # React only
 uv run reply-review owner/repo 45 <comment_id> --react eyes
 
-# Reply to all comments (skips your own)
-uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed"
+# Reply with specific context (preferred for complex items)
+uv run reply-review owner/repo 45 <comment_id> "Extracted to helper as suggested"
 
 # React to all comments (skips your own)
 uv run reply-review owner/repo 45 --react-all +1
@@ -70,12 +73,12 @@ uv run reply-review owner/repo 45 --react-all +1
 
 Help reviewers verify fixes quickly:
 
-| Situation | Reply |
-|-----------|-------|
-| Simple fix | "Done", "Fixed", "Resolved" |
-| Complex | "Extracted to helper as suggested" |
-| Deferred | "Will fix in follow-up PR - tracked in #123" |
-| Unclear | Ask for clarification |
+| Situation  | Reply                                        |
+| ---------- | -------------------------------------------- |
+| Simple fix | "Done", "Fixed", "Resolved"                  |
+| Complex    | "Extracted to helper as suggested"           |
+| Deferred   | "Will fix in follow-up PR - tracked in #123" |
+| Unclear    | Ask for clarification                        |
 
 **Avoid:** Commit SHAs (break on rebase), vague "OK", reacting when code changes are needed.
 
@@ -88,12 +91,13 @@ uv run reply-review owner/repo 45 --list
 uv run reply-review owner/repo 45 --react-all eyes
 ```
 
-**Pattern 2: Fixed everything, request re-review**
+**Pattern 2: Request re-review after fixes**
 
 ```bash
-uv run reply-review owner/repo 45 --reply-all \
-    --prefix "✅ Fixed" \
-    --suffix "PTAL"
+# Reply individually with context, then add PR comment
+uv run reply-review owner/repo 45 1111111111 "Extracted helper function"
+uv run reply-review owner/repo 45 2222222222 "Added error handling as suggested"
+gh pr comment owner/repo 45 --body "Fixed all items - PTAL"
 ```
 
 **Pattern 3: Selective responses**
@@ -114,9 +118,9 @@ uv run reply-review owner/repo 45 3333333333 "Discussed offline - resolving"
 
 ## Troubleshooting
 
-| Error | Fix |
-|-------|-----|
-| "GitHub CLI not authenticated" | `gh auth login` |
+| Error                              | Fix                           |
+| ---------------------------------- | ----------------------------- |
+| "GitHub CLI not authenticated"     | `gh auth login`               |
 | "Could not determine current user" | Token needs `read:user` scope |
 
 ## Example
@@ -126,18 +130,19 @@ uv run reply-review owner/repo 45 3333333333 "Discussed offline - resolving"
 uv run reply-review owner/repo 45 --list
 uv run reply-review owner/repo 45 --react-all eyes
 
-# After fixes
-uv run reply-review owner/repo 45 --reply-all --prefix "✅ Fixed" --suffix "PTAL"
+# After fixes (specific replies)
+uv run reply-review owner/repo 45 1111111111 "Extracted helper function"
+uv run reply-review owner/repo 45 2222222222 "Fixed"
 
 # Deferred items
-uv run reply-review owner/repo 45 9876543210 "Will address in follow-up PR - tracked in #123"
+uv run reply-review owner/repo 45 3333333333 "Will address in follow-up PR - tracked in #123"
 ```
 
 ## vs Posting Reviews
 
-|               | This Workflow                    | Posting Reviews                      |
-| ------------- | -------------------------------- | -------------------------------------|
-| **Your role** | PR author responding to feedback | Reviewer giving feedback             |
-| **Action**    | Reply to existing comments       | Create new review with comments       |
-| **Tool**      | `reply-review`                   | `post-review` / `scan-violations`    |
-| **Result**    | Threaded replies under comments  | New review on PR timeline            |
+|               | This Workflow                    | Posting Reviews                   |
+| ------------- | -------------------------------- | --------------------------------- |
+| **Your role** | PR author responding to feedback | Reviewer giving feedback          |
+| **Action**    | Reply to existing comments       | Create new review with comments   |
+| **Tool**      | `reply-review`                   | `post-review` / `scan-violations` |
+| **Result**    | Threaded replies under comments  | New review on PR timeline         |

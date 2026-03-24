@@ -4,19 +4,20 @@ Perform a checklist-based code review and post **batched** comments.
 
 ## Core Principles
 
-| Principle | Why | Enforcement |
-|-----------|-----|-------------|
-| **File-first** | GitHub comments are permanent—review before posting | `--input FILE` required for batch |
-| **Batching** | One review per PR, not one per comment (permanent timeline noise) | Inline multiple comments errors |
-| **No inline `--body`** | Hard to write, easy to break quotes, can't review | `--body-file` preferred |
-| **Explain WHY** | Teach the consequence so author learns | ≥10 words (except LGTM, Approved, Done, Fixed, Acknowledged) |
+| Principle              | Why                                                               | Enforcement                                                  |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------ |
+| **File-first**         | GitHub comments are permanent—review before posting               | `--input FILE` required for batch                            |
+| **Batching**           | One review per PR, not one per comment (permanent timeline noise) | Inline multiple comments errors                              |
+| **No inline `--body`** | Hard to write, easy to break quotes, can't review                 | `--body-file` preferred                                      |
+| **Explain WHY**        | Teach the consequence so author learns                            | ≥10 words (except LGTM, Approved, Done, Fixed, Acknowledged) |
 
-| ✗ Don't | ✓ Do |
-|---------|------|
-| "Add dependency" | "Missing 'onChange' causes stale closure when prop updates" |
-| "Fix type" | "Returns Promise<void> but caller expects User[]. Match interface." |
+| ✗ Don't          | ✓ Do                                                                |
+| ---------------- | ------------------------------------------------------------------- |
+| "Add dependency" | "Missing 'onChange' causes stale closure when prop updates"         |
+| "Fix type"       | "Returns Promise<void> but caller expects User[]. Match interface." |
 
 ## The Workflow: File First, Then Post
+
 ```bash
 # STEP 1: Build/scan and SAVE TO FILE
 uv run scan-violations owner/repo 42 \
@@ -49,7 +50,7 @@ uv run scan-violations owner/repo 42 \
     --output review_payload.json
 
 # 3. Review the generated payload manually
-# 4. Post when ready via --input (not
+# 4. Post when ready via --input
 uv run post-review owner/repo 42 \
     --input review_payload.json \
     --review-body "Checklist violations" \
@@ -139,13 +140,13 @@ uv run post-review owner/repo 42 \
 
 # Multiple comments via JSON
 uv run post-review owner/repo 42 \
-   
+    --input review.json \
     --review-body "Items" --event REQUEST_CHANGES
 
 # Via heredoc (no escaping, supports markdown)
 uv run post-review owner/repo 42 \
     --review-body "Review" --event REQUEST_CHANGES \
-   
+    --input - << 'EOF'
 [
   {"path": "src/hooks.ts", "position": 42, "body": "Use `useCallback`"},
   {"path": "src/utils.ts", "position": 8, "body": "Type this"}
@@ -177,8 +178,8 @@ uv run build-review --post owner/repo 42 \
 uv run scan-violations owner/repo 42 --checklist docs/review-checklist.md --output review.json
 # ... manually review review.json ...
 uv run post-review owner/repo 42 \
+    --input review.json \
     --review-body "Checklist violations" \
-   
     --event REQUEST_CHANGES
 ```
 
@@ -190,7 +191,8 @@ uv run get-positions owner/repo 42 src/hooks.ts:45 src/utils.ts:12 src/api.ts:88
 # Extract positions and build JSON comments...
 uv run post-review owner/repo 42 \
     --review-body "Checklist review" \
-   
+    --event REQUEST_CHANGES \
+    --input - << 'EOF'
 [
   {"path": "src/hooks.ts", "position": 127, "body": "Add useCallback"},
   {"path": "src/utils.ts", "position": 45, "body": "Type this error"},
