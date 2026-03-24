@@ -1,0 +1,53 @@
+[project]
+name = "review-tools"
+version = "0.1.0"
+description = "Workflow toolkit for creating and maintaining code review checklists"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27.0",
+    "rich>=14.3.3",
+    "platformdirs>=4.9.4",
+]
+
+[project.scripts]
+pr-threads = "review_tools.pr_threads:main"
+suggest-checklist = "review_tools.suggest_checklist:main"
+scan-violations = "review_tools.scan_violations:main"
+build-review = "review_tools.build_review:main"
+get-positions = "review_tools.get_positions:main"
+post-review = "review_tools.post_review:main"
+reply-review = "review_tools.reply_review:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.0",
+    "basedpyright>=1.28.0",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B905", "SIM108", "W293"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.basedpyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+reportMissingParameterType = false
+reportUnknownParameterType = false
+reportUnknownVariableType = false
+reportAny = false
