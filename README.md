@@ -84,8 +84,13 @@ uv run build-review --post owner/repo 42 --review-body "Refactoring suggestions"
 **Respond to review comments:**
 
 ```bash
-# List and reply individually (preferred)
-uv run reply-review owner/repo 45 --list
+# List with full context (recommended)
+uv run reply-review owner/repo 45 --list --with-context
+
+# Inspect complex threads deeply
+uv run reply-review owner/repo 45 --inspect 1234567890
+
+# Reply with confidence
 uv run reply-review owner/repo 45 1234567890 "Extracted to helper as suggested"
 
 # Or acknowledge all with reactions
@@ -96,13 +101,13 @@ uv run reply-review owner/repo 45 --react-all eyes
 
 | Command                    | Purpose                                   |
 | -------------------------- | ----------------------------------------- |
-| `uv run pr-threads`        | Fetch PR review comments                  |
+| `uv run pr-threads`        | Fetch PR review comments for analysis     |
 | `uv run suggest-checklist` | Suggest checklist items from patterns     |
 | `uv run scan-violations`   | Auto-detect violations in PRs             |
 | `uv run build-review`      | Build review payload incrementally        |
 | `uv run get-positions`     | Convert file:line to GitHub diff position |
 | `uv run post-review`       | Post batched GitHub review                |
-| `uv run reply-review`      | Reply/react to PR comments                |
+| `uv run reply-review`      | Reply/react to PR comments with context |
 
 ## Development
 

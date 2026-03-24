@@ -22,12 +22,13 @@ Output: Threaded comments (id, path:line, commit, author, body). Pipe to suggest
 """
 
 import argparse
-import collections
 import json
 import re
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from review_tools.common import build_threads, is_bot, print_comment_body, print_diff_hunk
 
 DEFAULT_SLUG_MAP = {"wallet": "razorpay/wallet-frontend"}
 _URL_RE = re.compile(r"https://github\.com/([^/]+/[^/]+)/pull/(\d+)")
@@ -90,25 +91,7 @@ def resolve_reviewer(reviewer, all_reviewers=False):
     return reviewer
 
 
-def is_bot(login):
-    return "bot" in login.lower()
 
-
-def build_threads(reviews):
-    threads = collections.OrderedDict()
-    for c in reviews:
-        rid = c.get("in_reply_to_id")
-        if rid is None:
-            threads[c["id"]] = {"root": c, "replies": []}
-        else:
-            if rid in threads:
-                threads[rid]["replies"].append(c)
-            else:
-                for t in threads.values():
-                    if any(r["id"] == rid for r in t["replies"]):
-                        t["replies"].append(c)
-                        break
-    return threads
 
 
 def print_threads(pr_data, reviewer=None, comment_ids=None, body_filter=None):
@@ -143,8 +126,7 @@ def print_threads(pr_data, reviewer=None, comment_ids=None, body_filter=None):
             author = m['user']['login']
             body = m['body']
             print(f"  [id={msg_id}] @{author}:")
-            for line in body[:500].split('\n'):
-                print(f"    {line}")
+            print_comment_body(body[:500], indent=4)
             if len(body) > 500:
                 print(f"    ... ({len(body) - 500} more chars)")
         print()
@@ -155,8 +137,7 @@ def print_threads(pr_data, reviewer=None, comment_ids=None, body_filter=None):
         print("-- Issue comments --")
         for c in human_issue:
             print(f"  [id={c['id']}] repo={repo} pr={pr_num} @{c['user']['login']}:")
-            for line in c['body'][:300].split('\n'):
-                print(f"    {line}")
+            print_comment_body(c['body'][:300], indent=4)
             if len(c['body']) > 300:
                 print(f"    ... ({len(c['body']) - 300} more chars)")
         print()
@@ -191,8 +172,7 @@ def print_file_pattern(pr_data, file_pattern, reviewer=None, body_filter=None):
         print(f"File: {path}:{line}")
         print(f"  id={comment_id} repo={repo} pr={pr_num} commit={commit}")
         print(f"  [id={comment_id}] @{author}:")
-        for line in body[:500].split('\n'):
-            print(f"    {line}")
+        print_comment_body(body[:500], indent=4)
         if len(body) > 500:
             print(f"    ... ({len(body) - 500} more chars)")
         print()
@@ -215,15 +195,12 @@ def print_comments_by_id(pr_data, comment_ids):
             path = c.get('path', 'unknown')
             line = c.get('line') or c.get('original_line', '?')
             author = c['user']['login']
-            body = c['body']
             print(f"id={c['id']} repo={repo} pr={pr_num} path={path}:{line} commit={commit} reply_to={c.get('in_reply_to_id')} user={author}")
             print("body:")
-            for line in body.split('\n'):
-                print(f"  {line}")
+            print_comment_body(c['body'], indent=2)
             print("diff_hunk:")
             diff = c.get('diff_hunk', '[No diff hunk available]')
-            for line in diff.split('\n')[-10:]:
-                print(f"  {line}")
+            print_diff_hunk(diff, max_lines=10, indent=2)
             print()
 
 
