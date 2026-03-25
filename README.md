@@ -1,147 +1,81 @@
-# PR Review Checklist Generator
+# review-tools
 
-**Philosophy:** File-first, batched code reviews with no timeline noise.
+> **AI agent?** Read [AGENTS.md](AGENTS.md) first.
+
+A Claude Code skill for doing GitHub PR reviews. File-first, batched reviews — no timeline noise.
 
 | Principle      | Why It Matters                                                                                                                |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **File-first** | Review your comments before posting. GitHub review comments are permanent—no undo without leaving dismissed timeline entries. |
 | **Batching**   | One review per PR, not one per comment. Multiple reviews = permanent timeline clutter that can't be cleaned up.               |
-| **Quality**    | Comments explain WHY, not just WHAT. Minimum 10 words (except LGTM, Approved, etc.).                                          |
+| **Quality**    | Comments explain WHY, not just WHAT. Minimum 10 words (except LGTM, Approved, etc.).                                         |
+
+## Structure
+
+```
+skills/
+  review-tools/         — the installable skill
+    SKILL.md                — entry point: philosophy and workflow routing
+    references/             — workflow guides and the review checklist
+    scripts/                — Python CLI tools
+      src/review_tools/     — source for all CLI commands
+      pyproject.toml
+      uv.lock
+```
 
 ## Installation
 
 ```bash
-# Clone and install
 git clone <repo>
-cd review-tools
-uv sync  # Installs with dev dependencies
+cd review-tools/skills/review-tools/scripts
+uv sync
 ```
 
 Or run without installing:
 
 ```bash
+cd skills/review-tools/scripts
 uv run pr-threads owner/repo#35 --all
 ```
 
 ## Pick Your Workflow
 
-| I want to...                                          | Go to                                               |
-| ----------------------------------------------------- | --------------------------------------------------- |
-| **Extract patterns from past PRs** → update checklist | [analyze-patterns.md](docs/analyze-patterns.md)     |
-| **Review a PR** → post checklist-based comments       | [review-a-pr.md](docs/review-a-pr.md)               |
-| **Respond to reviews** → reply/react on my PR         | [respond-to-reviews.md](docs/respond-to-reviews.md) |
-| **Contribute/extend** the toolkit                     | [Code patterns](#development) below                 |
+| I want to...                                          | Go to                                                                                               |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Extract patterns from past PRs** → update checklist | [analyze-patterns.md](skills/review-tools/references/analyze-patterns.md)                          |
+| **Review a PR** → post checklist-based comments       | [review-a-pr.md](skills/review-tools/references/review-a-pr.md)                                    |
+| **Respond to reviews** → reply/react on my PR         | [respond-to-reviews.md](skills/review-tools/references/respond-to-reviews.md)                      |
 
 ## Quick Examples
 
-**Extract patterns and update checklist (pipeline):**
+Run all commands from `skills/review-tools/scripts/`.
+
+**Extract patterns and update checklist:**
 
 ```bash
 uv run pr-threads owner/repo#35 owner/repo#36 --all | \
-    uv run suggest-checklist --checklist docs/review-checklist.md
-```
-
-**Analyze specific file types:**
-
-```bash
-uv run pr-threads owner/repo#35 --all --file-pattern ".tsx" | \
-    uv run suggest-checklist --threshold 2
+    uv run suggest-checklist --checklist ../references/review-checklist.md
 ```
 
 **Review a PR (file → post workflow):**
 
 ```bash
 # STEP 1: Scan and save to file
-uv run scan-violations owner/repo 42 --checklist docs/review-checklist.md --output review.json
+uv run scan-violations owner/repo 42 --checklist ../references/review-checklist.md --output /tmp/review.json
 
 # STEP 2: Review/modify the file (optional)
-cat review.json | jq '.comments[] | {path, body}'
+cat /tmp/review.json | jq '.comments[] | {path, body}'
 
 # STEP 3: Post batched review
-uv run post-review owner/repo 42 --input review.json --review-body "Checklist review" --event REQUEST_CHANGES
-```
-
-**Approve a PR:**
-
-```bash
-# Pure approval
-uv run post-review owner/repo 42 --review-body "LGTM" --event APPROVE
-
-# Approve with minor comments
-uv run post-review owner/repo 42 --input nits.json --review-body "Approved with suggestions" --event APPROVE
-```
-
-**Build complex reviews incrementally:**
-
-```bash
-# Build up comments in a file
-uv run build-review --path src/a.ts --position 42 --body-file suggestion_a.md
-uv run build-review --path src/b.ts --position 15 --body "Extract this logic for reusability"
-uv run build-review --show  # Preview
-uv run build-review --post owner/repo 42 --review-body "Refactoring suggestions"
+uv run post-review owner/repo 42 --input /tmp/review.json --review-body "Checklist review" --event REQUEST_CHANGES
 ```
 
 **Respond to review comments:**
 
 ```bash
-# List with full context (recommended)
 uv run reply-review owner/repo 45 --list --with-context
-
-# Inspect complex threads deeply
-uv run reply-review owner/repo 45 --inspect 1234567890
-
-# Reply with confidence
 uv run reply-review owner/repo 45 1234567890 "Extracted to helper as suggested"
-
-# Or acknowledge all with reactions
-uv run reply-review owner/repo 45 --react-all eyes
 ```
-
-## Commands
-
-| Command                    | Purpose                                   |
-| -------------------------- | ----------------------------------------- |
-| `uv run pr-threads`        | Fetch PR review comments for analysis     |
-| `uv run suggest-checklist` | Suggest checklist items from patterns     |
-| `uv run scan-violations`   | Auto-detect violations in PRs             |
-| `uv run build-review`      | Build review payload incrementally        |
-| `uv run get-positions`     | Convert file:line to GitHub diff position |
-| `uv run post-review`       | Post batched GitHub review                |
-| `uv run reply-review`      | Reply/react to PR comments with context |
-
-## Development
-
-```bash
-# Run linting
-uv run ruff check src/
-
-# Run type checking
-uv run basedpyright src/
-
-# Format code
-uv run ruff format src/
-```
-
-### Code Patterns
-
-**Performance:**
-
-- Pre-compile regex at module level
-- Use `functools.lru_cache` for API calls
-- Use `frozenset` for O(1) lookups
-
-**Error Handling:**
-
-- Use `rich.console` for colored output
-- Show helpful context, not just raw errors
-- Provide `--force-*` flags for user overrides
-
-**Adding Commands:**
-
-1. Follow `verb-noun` naming (e.g., `scan-violations`)
-2. Add entry point in `pyproject.toml`
-3. Use file-based patterns (read from `--input`, write to `--output`)
-4. Update this README with examples
 
 ## Requirements
 
@@ -151,7 +85,7 @@ uv run ruff format src/
 
 ## Help
 
-All commands have built-in help: `--help` or `-h`
+All commands have built-in help:
 
 ```bash
 uv run pr-threads --help
@@ -159,7 +93,3 @@ uv run scan-violations --help
 uv run post-review --help
 uv run reply-review --help
 ```
-
-## Example Checklist
-
-See [review-checklist.md](docs/review-checklist.md) for an example checklist derived from real PR reviews.

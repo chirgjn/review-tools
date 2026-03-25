@@ -1,6 +1,7 @@
 # Workflow: Respond to Review Comments on Your PR
 
-Reply to and react on review feedback.
+You're the PR author and someone has left comments on your PR. Use this to list, inspect, and reply to feedback.
+For giving feedback on someone else's PR, see `review-a-pr.md` instead.
 
 ## Workflow
 
@@ -32,7 +33,9 @@ Shows: Full body, complete diff hunk, thread history, metadata.
 
 ### 3. Respond
 
-**Single:**
+> **Never use `--reply-all`** — mass replies with generic text ("✅ Fixed") make it impossible for reviewers to verify what changed. Reply individually with specific context.
+
+**Single reply:**
 
 ```bash
 uv run reply-review owner/repo 45 2983284330 "Fixed"
@@ -40,13 +43,11 @@ uv run reply-review owner/repo 45 2983284330 "Handled" --react +1
 uv run reply-review owner/repo 45 2983284330 --react eyes
 ```
 
-**React to all (acknowledges feedback):**
+**React to all (acknowledge without replying — use when you need more time):**
 
 ```bash
 uv run reply-review owner/repo 45 --react-all eyes
 ```
-
-> **Note:** Avoid using `--reply-all` with generic prefixes like "✅ Fixed". Match reply quality to complexity — use individual replies with specific context like "Extracted to helper" for complex changes.
 
 ## Tool Reference
 
@@ -82,7 +83,7 @@ uv run reply-review owner/repo 45 --react-all +1
 
 **Emojis:** `+1`, `-1`, `laugh`, `confused`, `heart`, `hooray`, `eyes`, `rocket`
 
-**Reply-all options:**
+**`--reply-all` — do not use.** Options exist but mass replies degrade review signal:
 
 - `--prefix TEXT` — Prefix all replies
 - `--suffix TEXT` — Suffix all replies
@@ -163,31 +164,3 @@ uv run reply-review owner/repo 45 3333333333 "Discussed offline - resolving"
 | "GitHub CLI not authenticated"     | `gh auth login`               |
 | "Could not determine current user" | Token needs `read:user` scope |
 
-## Example
-
-```bash
-# Full context workflow
-uv run reply-review owner/repo 45 --list --with-context
-
-# Inspect a complex thread
-uv run reply-review owner/repo 45 --inspect 1111111111
-
-# Respond with context
-uv run reply-review owner/repo 45 1111111111 "Extracted helper function"
-uv run reply-review owner/repo 45 2222222222 "Fixed"
-
-# Acknowledge remaining feedback
-uv run reply-review owner/repo 45 --react-all eyes
-
-# Deferred items
-uv run reply-review owner/repo 45 3333333333 "Will address in follow-up PR - tracked in #123"
-```
-
-## vs Posting Reviews
-
-|               | This Workflow                    | Posting Reviews                   |
-| ------------- | -------------------------------- | --------------------------------- |
-| **Your role** | PR author responding to feedback | Reviewer giving feedback          |
-| **Action**    | Reply to existing comments       | Create new review with comments   |
-| **Tool**      | `reply-review`                   | `post-review` / `scan-violations` |
-| **Result**    | Threaded replies under comments  | New review on PR timeline         |
