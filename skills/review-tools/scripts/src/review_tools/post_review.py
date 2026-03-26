@@ -155,7 +155,12 @@ def main():
             sys.exit(1)
         with open(args.input) as f:
             data = json.load(f)
-            comments = data.get("comments", [])
+            raw_comments = data.get("comments", [])
+            # Strip informational fields (e.g. file_line) not accepted by GitHub API
+            comments = [
+                {k: v for k, v in c.items() if k in ("path", "position", "body")}
+                for c in raw_comments
+            ]
             review_body = data.get("review_body")
 
     if args.input and not review_body:

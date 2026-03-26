@@ -428,7 +428,7 @@ def main():
             console.print("[green]✓ No violations found[/green]")
         return
     
-    comments = [{'path': v['path'], 'position': v['pos'], 'body': f"**{v['rule']}**\n\n{v['msg']}\n\n💡 {v['fix']}"} for v in all_v]
+    comments = [{'path': v['path'], 'file_line': v['line'], 'position': v['pos'], 'body': f"**{v['rule']}**\n\n{v['msg']}\n\n💡 {v['fix']}"} for v in all_v]
     payload = {'review_body': 'Automated checklist review', 'commit_id': head, 'event': 'REQUEST_CHANGES' if all_v else 'COMMENT', 'comments': comments}
     
     if args.output:

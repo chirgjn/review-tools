@@ -55,8 +55,8 @@ review=$(mktemp -t review-42-XXXX.json)
 uv run build-review --file "$review" --summary-file "$summary"
 
 # Add comments over time
-uv run build-review --file "$review" --path src/a.ts --position 42 --body "Fix A"
-uv run build-review --file "$review" --path src/b.ts --position 15 --body-file comment_b.md
+uv run build-review --file "$review" --path src/a.ts --line 42 --position 48 --body "Fix A"
+uv run build-review --file "$review" --path src/b.ts --line 15 --position 21 --body-file comment_b.md
 uv run build-review --file "$review" --show      # Preview
 uv run build-review --file "$review" --post owner/repo 42 --event REQUEST_CHANGES
 ```
@@ -80,6 +80,7 @@ gh pr comment owner/repo#42 --body-file "$(mktemp -t comment-42-XXXX.md)"
   "comments": [
     {
       "path": "src/hooks/useKycNavigation.ts",
+      "file_line": 45,
       "position": 42,
       "body": "**Bug:** explanation of the problem and why it matters..."
     }
@@ -89,7 +90,10 @@ gh pr comment owner/repo#42 --body-file "$(mktemp -t comment-42-XXXX.md)"
 
 - `review_body` — required; top-level review summary
 - `comments` — inline diff comments; may be empty `[]` for a body-only review
-- `position` — diff position (not line number); use `get-positions` to convert `file:line → position`
+- `file_line` — **source file line number** (informational only; for human reference when editing the JSON)
+- `position` — **GitHub diff position** (required by the API); use `get-positions` to convert `file:line → position`. This is a per-file counter over the unified diff, not a line number.
+
+`file_line` and `position` are separate because GitHub's API requires a diff position, not a line number. `scan-violations` and `build-review` populate both; `post-review` only forwards `position` to the API.
 
 **Files not in the diff** cannot have inline comments. Put observations about missing files/types/exports in `review_body` instead.
 
@@ -160,12 +164,12 @@ Build review incrementally. `review_body` is stored in the payload file — set 
 review=$(mktemp -t review-42-XXXX.json)
 summary=$(mktemp -t summary-42-XXXX.md)
 uv run build-review --file "$review" --summary-file "$summary"
-uv run build-review --file "$review" --path src/a.ts --position 5 --body "Fix A"
+uv run build-review --file "$review" --path src/a.ts --line 45 --position 5 --body "Fix A"
 uv run build-review --file "$review" --show                    # Preview
 uv run build-review --file "$review" --post owner/repo 42 --event REQUEST_CHANGES
 ```
 
-**Options:** `--file`, `--summary-file`, `--path`, `--position`, `--body`, `--body-file`, `--show`, `--export-comments`, `--clear`, `--post`
+**Options:** `--file`, `--summary-file`, `--path`, `--line`, `--position`, `--body`, `--body-file`, `--show`, `--export-comments`, `--clear`, `--post`
 
 ## Examples
 
@@ -193,8 +197,8 @@ uv run post-review owner/repo 42 --input "$review" --event REQUEST_CHANGES
 review=$(mktemp -t review-42-XXXX.json)
 summary=$(mktemp -t summary-42-XXXX.md)
 uv run build-review --file "$review" --summary-file "$summary"
-uv run build-review --file "$review" --path src/auth.ts --position 15 --body "Add useMemo"
-uv run build-review --file "$review" --path src/utils.ts --position 42 --body-file complex_suggestion.md
+uv run build-review --file "$review" --path src/auth.ts --line 15 --position 21 --body "Add useMemo"
+uv run build-review --file "$review" --path src/utils.ts --line 42 --position 48 --body-file complex_suggestion.md
 uv run build-review --file "$review" --show
 uv run build-review --file "$review" --post owner/repo 42 --event REQUEST_CHANGES
 ```
