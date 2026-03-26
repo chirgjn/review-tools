@@ -8,7 +8,7 @@ Extract recurring themes from past PR reviews.
 
 ```bash
 uv run pr-threads owner/repo#35 owner/repo#36 owner/repo#37 --all
-uv run pr-threads owner/repo#35 owner/repo#36 --all > threads.txt  # Save to file
+uv run pr-threads owner/repo#35 owner/repo#36 --all > /tmp/threads.txt  # Save to file
 ```
 
 **Tips:** `--all` (all reviewers), `--file-pattern .tsx` (filter files), `--body-filter useCallback` (filter themes)
@@ -27,11 +27,11 @@ uv run pr-threads owner/repo#35 owner/repo#36 --all --file-pattern ".tsx" | \
 # Compare against existing checklist (shows only new suggestions)
 uv run pr-threads owner/repo#35 owner/repo#36 --all | \
     uv run suggest-checklist \
-        --checklist docs/review-checklist.md \
+        --checklist ${CLAUDE_SKILL_DIR}/references/review-checklist.md \
         --new-only
 
 # Stricter threshold (only very frequent patterns)
-uv run suggest-checklist --input threads.txt --threshold 5
+uv run suggest-checklist --input /tmp/threads.txt --threshold 5
 ```
 
 ### 3. Update Checklist
@@ -104,22 +104,25 @@ Analyze pr-threads output and suggest checklist items.
 uv run pr-threads ... | uv run suggest-checklist
 
 # From file
-uv run suggest-checklist --input threads.txt
+uv run suggest-checklist --input /tmp/threads.txt
 
 # With checklist deduplication
-uv run suggest-checklist --input threads.txt \
-    --checklist docs/review-checklist.md
+uv run suggest-checklist --input /tmp/threads.txt \
+    --checklist ${CLAUDE_SKILL_DIR}/references/review-checklist.md
 
 # Only new suggestions
-uv run suggest-checklist --input threads.txt \
-    --checklist docs/review-checklist.md --new-only
+uv run suggest-checklist --input /tmp/threads.txt \
+    --checklist ${CLAUDE_SKILL_DIR}/references/review-checklist.md --new-only
 
 # Save report
-uv run suggest-checklist --input threads.txt \
-    --output analysis.txt
+uv run suggest-checklist --input /tmp/threads.txt \
+    --output /tmp/analysis.txt
 ```
 
 **Options:** `--threshold N` (default: 3), `--checklist FILE`, `--new-only`, `--apply`
+
+- `--threshold N` — only suggest patterns appearing N or more times (default: 3; matches the "3+ times" rule of thumb)
+- `--apply` — write suggestions directly into the checklist file; review output first before using
 
 **How it works:** Extracts keywords → clusters → categorizes → ranks by frequency → suggests.
 
@@ -131,20 +134,18 @@ uv run pr-threads \
     owner/repo#40 owner/repo#41 owner/repo#42 \
     owner/repo#43 owner/repo#44 --all | \
     uv run suggest-checklist \
-        --checklist docs/review-checklist.md \
+        --checklist ${CLAUDE_SKILL_DIR}/references/review-checklist.md \
         --new-only
 
 # 2. Review suggestions, manually update checklist
 # 3. Commit checklist update
 ```
 
-**Alternative: Save to file for repeated analysis**
+**Save to file for repeated analysis passes:**
 
 ```bash
-# Save output for multiple analysis passes
-uv run pr-threads owner/repo#35 owner/repo#36 --all > review_threads.txt
+uv run pr-threads owner/repo#35 owner/repo#36 --all > /tmp/review_threads.txt
 
-# Analyze with different thresholds
-uv run suggest-checklist --input review_threads.txt --threshold 3
-uv run suggest-checklist --input review_threads.txt --threshold 5 --new-only
+uv run suggest-checklist --input /tmp/review_threads.txt --threshold 3
+uv run suggest-checklist --input /tmp/review_threads.txt --threshold 5 --new-only
 ```

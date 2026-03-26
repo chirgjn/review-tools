@@ -1,0 +1,34 @@
+{
+  "comments": [
+    {
+      "path": "src/pages/CKycRecordInfo/CKycRecordInfo.tsx",
+      "position": 15,
+      "body": "**Bug: query param mismatch \u2014 validation view can never render**\n\n`CKycRecordInfo` checks `record_verification` to decide which child to show:\n```tsx\nconst forRecordVerification = searchParams.get('record_verification') === 'true';\n```\nBut `CKycRecordOtpVerification` (line 49) navigates with `?record_validation=true` \u2014 a different param name. No code ever sets `record_verification=true`, so after OTP success the user is sent back to the OTP screen in a loop instead of the validation view.\n\nFix: use the same param name in both places."
+    },
+    {
+      "path": "src/pages/CKycRecordInfo/components/CKycRecordOtpVerification.tsx",
+      "position": 38,
+      "body": "**Missing API functions \u2014 build will fail**\n\n`resendCKycRecordDownloadOtp` and `downloadCKycRecord` are imported from `@wallet/api` (`src/api.ts`), but neither function exists there. `activateWalletWithCkycInfo` (imported in `CKycRecordValidation.tsx`) is also absent.\n\nThese are defined in the `ckyc/04-shared-components` branch but that branch has not been merged into `feat/temp-master`. Also missing from the base branch: `AadhaarErrorBottomSheet`, `SvgContainer`, and `useAadhaarErrorHandler`.\n\nThis PR should not be merged until its prerequisites are in the base branch, or the required code should be included here."
+    },
+    {
+      "path": "src/pages/CKycRecordInfo/components/CKycRecordOtpVerification.tsx",
+      "position": 67,
+      "body": "**Naming: `isdownloadCKycRecordLoading` should be `isDownloadCKycRecordLoading`**\n\nThe destructured alias starts with a lowercase letter after `is`, breaking camelCase convention. Update the alias and all its references (lines 123, 144, 147)."
+    },
+    {
+      "path": "src/pages/CKycRecordInfo/components/CKycRecordOtpVerification.tsx",
+      "position": 103,
+      "body": "**Naming: `isresendOTPLoading` should be `isResendOTPLoading`**\n\nSame issue \u2014 lowercase `r` after `is`. Update the alias and all references (lines 109, 123, 144)."
+    },
+    {
+      "path": "src/pages/CKycRecordInfo/components/CKycRecordOtpVerification.tsx",
+      "position": 114,
+      "body": "**Duplicate `otp_rate_limit_exceeded` message uses inconsistent string literal**\n\nThe `downloadCKycRecord` handler (line 66) writes the rate-limit message as a double-quoted string with a straight apostrophe. This handler uses a single-quoted string with a Unicode curly apostrophe (U+2019), producing two distinct string values for the same error.\n\nExtract to a shared constant so both handlers stay in sync:\n```ts\nconst OTP_RATE_LIMIT_MESSAGE =\n  \"You've entered the wrong OTP too many times. Please try again in 30 minutes\";\n```"
+    },
+    {
+      "path": "src/pages/CKycRecordInfo/components/CKycRecordValidation.tsx",
+      "position": 330,
+      "body": "**`snapPoints={[1, 1, 1]}` \u2014 all three snap points are identical**\n\nA `BottomSheet` with three identical snap points at `1` (100% height) behaves the same as a single snap point. Use `snapPoints={[1]}` if the intent is a full-height fixed sheet, or distinct values (e.g. `[0.3, 0.6, 1]`) if multiple snap positions are wanted."
+    }
+  ]
+}

@@ -3,11 +3,11 @@
 
 ⚠️ ALWAYS batch comments into ONE review. Never post multiple reviews (creates permanent timeline noise).
 
-Usage: uv run post-review <owner/repo> <pr> --input FILE --review-body TEXT [options]
+Usage: uv run post-review <owner/repo> <pr> --input FILE [options]
 
 RECOMMENDED:
   --input FILE          Read review payload from JSON (batch multiple comments)
-  --review-body TEXT    Review summary (required)
+                        JSON must include a "review_body" field and a "comments" array.
   --event TYPE          COMMENT (default), APPROVE, REQUEST_CHANGES
 
 Single comment (use sparingly):
@@ -18,19 +18,20 @@ Single comment (use sparingly):
 
 Guidelines:
 - Batch via --input FILE (clean PR history)
+- review_body must be set in the input JSON file
 - Single comment via --body-file (reviewable)
 - Inline --body only for quick status: LGTM, Approved, etc.
 - Multiple inline comments = ERROR (use --input)
 
 Examples:
-  # Batch (recommended)
-  uv run post-review owner/repo 42 --input review.json --review-body "Review" --event REQUEST_CHANGES
+  # Batch (recommended) — review_body comes from the JSON file
+  uv run post-review owner/repo 42 --input review.json --event REQUEST_CHANGES
 
   # Single from file
-  uv run post-review owner/repo 42 --path X.ts --position 5 --body-file comment.md --review-body "Nit"
+  uv run post-review owner/repo 42 --path X.ts --position 5 --body-file comment.md
 
   # Single quick (opt-in to separate review entry)
-  uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X.ts --position 5 --body "LGTM" --review-body "Approved"
+  uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X.ts --position 5 --body "LGTM"
 """
 
 import argparse
@@ -100,7 +101,6 @@ def main():
     parser.add_argument("--position", type=int, action="append", default=[], help="Diff position")
     parser.add_argument("--body", help="Comment body")
     parser.add_argument("--body-file", help="Read body from file")
-    parser.add_argument("--review-body", required=True, help="Review summary")
     parser.add_argument(
         "--event",
         choices=["COMMENT", "APPROVE", "REQUEST_CHANGES"],
@@ -117,7 +117,7 @@ def main():
         console.print("[red]Error: Single comment reviews create separate GitHub review entries (clutters PR history).[/red]")
         console.print("[dim]   Option 1: Use --input FILE to batch multiple comments (recommended):[/dim]")
         console.print("[dim]     uv run scan-violations owner/repo 42 --output review.json[/dim]")
-        console.print("[dim]     uv run post-review owner/repo 42 --input review.json --review-body '...'[/dim]")
+        console.print("[dim]     uv run post-review owner/repo 42 --input review.json[/dim]")
         console.print("[dim]   Option 2: Use --i-know-this-creates-separate-review to explicitly accept the anti-pattern:[/dim]")
         console.print("[dim]     uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X --position N --body 'LGTM'[/dim]")
         sys.exit(1)
@@ -147,23 +147,29 @@ def main():
             return False
         return True
 
-    # Check review body word count (review body can be shorter - min 3 words or allowed short)
-    review_word_count = count_words(args.review_body)
-    if review_word_count < 3 and not is_allowed_short(args.review_body):
-        console.print(f"[yellow]⚠️  Review body is very short ({review_word_count} words)[/yellow]")
-        console.print("[dim]   Hint: Use 'LGTM', 'Approved', or a brief summary of the review.[/dim]")
-        console.print("[red]Error: Review body too short.[/red]")
-        sys.exit(1)
-
-    # Build comments
+    # Build comments (load file first so review_body can come from it)
+    review_body: str | None = None
     if args.input:
         if not Path(args.input).exists():
             console.print(f"[red]Error: Input file not found: {args.input}[/red]")
             sys.exit(1)
         with open(args.input) as f:
             data = json.load(f)
-            comments = data.get("comments", [])
-    else:
+            raw_comments = data.get("comments", [])
+            # Strip informational fields (e.g. file_line) not accepted by GitHub API
+            comments = [
+                {k: v for k, v in c.items() if k in ("path", "position", "body")}
+                for c in raw_comments
+            ]
+            review_body = data.get("review_body")
+
+    if args.input and not review_body:
+        console.print("[red]Error: review_body is required in the input JSON file:[/red]")
+        console.print('[dim]  { "review_body": "...", "comments": [...] }[/dim]')
+        sys.exit(1)
+
+    # Check review body word count (review body can be shorter - min 3 words or allowed short)
+    if not args.input:
         # Build from individual flags
         body = args.body
         if args.body_file:
@@ -177,6 +183,14 @@ def main():
             sys.exit(1)
 
         comments = build_comments_from_flags(args.path, args.position, [body])
+        review_body = review_body or body  # fall back to comment body for single inline comments
+
+    review_word_count = count_words(review_body)
+    if review_word_count < 3 and not is_allowed_short(review_body):
+        console.print(f"[yellow]⚠️  Review body is very short ({review_word_count} words)[/yellow]")
+        console.print("[dim]   Hint: Use 'LGTM', 'Approved', or a brief summary of the review.[/dim]")
+        console.print("[red]Error: Review body too short.[/red]")
+        sys.exit(1)
 
     # Only allow single inline comment - use --input FILE for multiple comments
     if using_inline and len(comments) > 1:
@@ -184,7 +198,7 @@ def main():
         console.print("[yellow]   Inline flags only support SINGLE comments.[/yellow]")
         console.print("[dim]   For multiple comments, use --input FILE to batch into ONE review:[/dim]")
         console.print("[dim]     uv run scan-violations owner/repo 42 --output review.json[/dim]")
-        console.print("[dim]     uv run post-review owner/repo 42 --input review.json --review-body '...'[/dim]")
+        console.print("[dim]     uv run post-review owner/repo 42 --input review.json[/dim]")
         sys.exit(1)
 
     # Validate comment word counts
@@ -211,7 +225,7 @@ def main():
     # Build payload
     payload = {
         "commit_id": head,
-        "body": args.review_body,
+        "body": review_body,
         "event": args.event,
         "comments": comments,
     }
@@ -221,12 +235,7 @@ def main():
     syntax = Syntax(json.dumps(payload, indent=2), "json", theme="monokai")
     console.print(Panel(syntax, expand=False))
 
-    # Confirm
-    if args.event == "REQUEST_CHANGES":
-        confirm = console.input("[yellow]Post as REQUEST_CHANGES? (y/N): [/yellow]")
-        if confirm.lower() not in ("y", "yes"):
-            console.print("[dim]Aborted[/dim]")
-            return
+    # No confirmation prompt — this script runs non-interactively (agent use)
 
     # Post
     with console.status("[bold green]Posting review..."):

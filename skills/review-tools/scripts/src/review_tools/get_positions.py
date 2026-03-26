@@ -47,31 +47,40 @@ def fetch_diff(repo: str, pr: int) -> str:
 
 
 def find_position(diff: str, target_path: str, target_line: int) -> int | None:
-    """Convert file line number to GitHub diff position."""
-    lines = diff.split("\n")
-    in_file, in_hunk, new_line, pos = False, False, 0, 0
+    """Convert file line number to GitHub diff position.
 
-    for i, line in enumerate(lines, 1):
-        # Use startswith checks (faster than regex)
+    GitHub's position is 1-based and counts from the first @@ hunk header of
+    the file's diff section (the @@ line itself is position 1).  It resets for
+    every file — it is NOT cumulative across the whole diff.
+    """
+    lines = diff.split("\n")
+    in_file, in_hunk = False, False
+    new_line = 0
+    file_pos = 0  # per-file position counter; resets at each "+++ b/" line
+
+    for line in lines:
         if line.startswith("diff --git"):
             in_file, in_hunk = False, False
         elif line.startswith("+++ b/"):
             in_file = target_path in line[6:]
+            file_pos = 0
         elif not in_file:
             continue
         elif line.startswith("@@"):
             in_hunk = True
+            file_pos += 1
             m = _RE_DIFF_HUNK.match(line)
             if m:
                 new_line = int(m.group(2))
-                pos = i
         elif not in_hunk:
             continue
-        elif line[0:1] in ("+", " "):
+        elif line[0:1] == "-":
+            file_pos += 1
+        else:  # "+" or context line
+            file_pos += 1
             if new_line == target_line:
-                return pos + 1
+                return file_pos
             new_line += 1
-            pos = i
 
     return None
 
