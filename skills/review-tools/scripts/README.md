@@ -26,8 +26,9 @@ Run from this directory:
 
 ```bash
 uv run pr-threads owner/repo#35 --all
-uv run scan-violations owner/repo 42 --checklist ../references/review-checklist.md --output /tmp/review.json
-uv run post-review owner/repo 42 --input /tmp/review.json --event REQUEST_CHANGES
+review=$(mktemp -t review-42-XXXX.json)
+uv run scan-violations owner/repo 42 --checklist ../references/review-checklist.md --output "$review"
+uv run post-review owner/repo 42 --input "$review" --event REQUEST_CHANGES
 uv run reply-review owner/repo 45 --list --with-context
 ```
 

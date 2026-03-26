@@ -138,7 +138,7 @@ uv run reply-review owner/repo 45 --react-all eyes
 # Reply individually with context, then add PR comment
 uv run reply-review owner/repo 45 1111111111 "Extracted helper function"
 uv run reply-review owner/repo 45 2222222222 "Added error handling as suggested"
-gh pr comment owner/repo 45 --body "Fixed all items - PTAL"
+gh pr comment owner/repo#45 --body "Fixed all items - PTAL"
 ```
 
 **Pattern 4: Selective responses**
