@@ -1,6 +1,6 @@
 # PR Review Checklist
 
-Derived from recurring review feedback on the CKYC PRs (#35–#38). Most rules are React/TypeScript-specific — when installing this skill in a non-React repo, replace the React Hooks, ESLint, and TypeScript sections with patterns from that codebase's own review history.
+Most rules are React/TypeScript-specific — when installing this skill in a non-React repo, replace the React Hooks, ESLint, and TypeScript sections with patterns from that codebase's own review history.
 
 ---
 
@@ -29,6 +29,10 @@ Derived from recurring review feedback on the CKYC PRs (#35–#38). Most rules a
 
 - [ ] **No `eslint-disable @typescript-eslint/naming-convention`** for numeric object keys — use computed property syntax `[400]:`, `[401]:` instead
 - [ ] **No `eslint-disable @typescript-eslint/no-dynamic-delete`** — prefer object spread or filter over `delete`
+- [ ] **No `eslint-disable @typescript-eslint/no-unnecessary-condition`** — fix the type inconsistency instead; if optional-chaining fires on a non-optional prop, either make the prop optional in the interface or remove the optional chain
+      @detect: eslint-disable.*no-unnecessary-condition
+      @msg: no-unnecessary-condition suppressed — fix the type instead
+      @fix: Align the call site with the interface (remove ?. or make prop optional)
 
 ---
 
@@ -44,6 +48,8 @@ Derived from recurring review feedback on the CKYC PRs (#35–#38). Most rules a
       @detect: useCallback\s*\(\s*\(\s*\)\s*=>|useCallback\s*\([^,]+\)(?!\s*[,\)])
       @anti: useCallback\s*\([^)]+,\s*\[[^\]]*\]\s*\)
       @msg: useCallback missing or incomplete deps
+
+- [ ] **Polling interval closures capture stable refs** — if `startPolling`/`stopPolling` close over values derived from `searchParams` or other unstable sources, use `useRef` for the inner handler or document why the stale-closure risk is acceptable
 
 - [ ] **Floating promises are handled** — use `void fn()` when not awaiting, not a bare `fn()`
       @detect: (?<!void\s)(?<!await\s)(\w+\([^)]*\))\s*\.then
@@ -97,6 +103,7 @@ Derived from recurring review feedback on the CKYC PRs (#35–#38). Most rules a
 
 ## Assets
 
+- [ ] **Icons are semantically appropriate** — the icon's visual meaning must match the context (e.g. don't use a business/finance icon for identity verification); if no suitable icon exists, track as design debt
 - [ ] **SVG fill uses `currentColor` as fallback** — `$fill ?? 'currentColor'` in styled SVG containers so color inherits from context
 - [ ] **New assets are optimized** — SVG size reduction attempted before committing
 

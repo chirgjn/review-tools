@@ -4,7 +4,7 @@ docs: references/
 
 # review-tools skill
 
-The installable Claude Code skill for GitHub PR reviews. For broader context, see `../../layout.md`.
+An installable Claude Code skill for GitHub PR reviews. Self-sufficient — all paths resolve via `${CLAUDE_SKILL_DIR}` with no dependency on the host repo.
 
 ## Contents
 

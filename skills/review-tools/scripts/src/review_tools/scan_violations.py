@@ -377,7 +377,6 @@ def main():
     parser.add_argument("--output", "-o", help="Save payload to JSON file")
     parser.add_argument("--dry-run", "-n", action="store_true", help="Preview only")
     parser.add_argument("--post", action="store_true", help="Post directly")
-    parser.add_argument("--review-body", default="Automated checklist review", help="Review summary")
     parser.add_argument("--cache-ttl", type=int, default=300, help="Cache GitHub API calls for N seconds (default: 300)")
     args = parser.parse_args()
     
@@ -430,7 +429,7 @@ def main():
         return
     
     comments = [{'path': v['path'], 'position': v['pos'], 'body': f"**{v['rule']}**\n\n{v['msg']}\n\n💡 {v['fix']}"} for v in all_v]
-    payload = {'commit_id': head, 'body': args.review_body, 'event': 'REQUEST_CHANGES' if all_v else 'COMMENT', 'comments': comments}
+    payload = {'review_body': 'Automated checklist review', 'commit_id': head, 'event': 'REQUEST_CHANGES' if all_v else 'COMMENT', 'comments': comments}
     
     if args.output:
         Path(args.output).write_text(json.dumps(payload, indent=2))

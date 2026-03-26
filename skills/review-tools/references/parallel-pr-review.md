@@ -62,7 +62,9 @@ The scripts/ directory is shared across parallel reviews — do NOT write any fi
 All artifacts must go into <worktree-path>/.review/.
 
 ## Task
-Review this PR thoroughly using the review tools. Save your findings to the .review/ directory.
+Review this PR thoroughly using the review tools. Read the references/ docs for workflow and file format guidance. Save your findings to <worktree-path>/.review/review.json.
+
+IMPORTANT — diff positions: Every comment in review.json must use a GitHub diff position, not a source file line number. Use `uv run get-positions <owner>/<repo> <N> <file>:<line>` to convert each file:line to its diff position before writing the JSON. Comments with source line numbers outside the diff will be rejected by the API.
 
 IMPORTANT: Do NOT post the review to GitHub under any circumstances. Do NOT ask for permission to post. Do NOT suggest posting. Your only output is the saved artifacts and a summary presented in the session.
 
@@ -234,7 +236,12 @@ Read findings from each worktree's `.review/` directory:
 
 ```bash
 ls .worktrees/pr-38/.review/
-cat .worktrees/pr-38/.review/review.json | jq '.comments[] | {path, body}'
+
+# Show the review summary
+jq '.review_body' .worktrees/pr-38/.review/review.json
+
+# Show inline comments
+jq '.comments[] | {path, body}' .worktrees/pr-38/.review/review.json
 ```
 
 ---

@@ -18,12 +18,12 @@ All `uv run` commands must be run from `scripts/` inside this skill directory. R
 ```bash
 cd <skill-root>/scripts
 uv run pr-threads owner/repo#35 --all
-uv run scan-violations owner/repo 42 --checklist <skill-root>/references/review-checklist.md --output /tmp/review.json
-uv run post-review owner/repo 42 --input /tmp/review.json --review-body "Review" --event REQUEST_CHANGES
+uv run scan-violations owner/repo 42 --checklist <skill-root>/references/review-checklist.md --output review-42.json
+uv run post-review owner/repo 42 --input review-42.json --event REQUEST_CHANGES
 uv run reply-review owner/repo 45 --list --with-context
 ```
 
-Write temporary artifacts to `/tmp/` — not into this skill directory.
+Write temporary artifacts to a `mktemp`-generated path — not into this skill directory.
 
 ## Workflows
 
@@ -33,28 +33,27 @@ Scan for violations, save to file, review, post once.
 
 ```bash
 # 1. Scan and save
+review=$(mktemp -t review-42-XXXX.json)
 uv run scan-violations owner/repo 42 \
     --checklist <skill-root>/references/review-checklist.md \
-    --output /tmp/review.json
+    --output "$review"
 
 # 2. Inspect before posting
-cat /tmp/review.json | jq '.comments[] | {path, body}'
+jq '.comments[] | {path, body}' "$review"
 
-# 3. Post as one batched review
+# 3. Post as one batched review (review_body comes from the JSON file)
 uv run post-review owner/repo 42 \
-    --input /tmp/review.json \
-    --review-body "Checklist review" \
+    --input "$review" \
     --event REQUEST_CHANGES
 ```
 
 For manual comments, get the diff position first:
 
 ```bash
+review=$(mktemp -t review-42-XXXX.json)
 uv run get-positions owner/repo 42 src/hooks.ts:45   # → position 127
-uv run post-review owner/repo 42 \
-    --path src/hooks.ts --position 127 \
-    --body "Add useCallback here — prevents referential instability on re-renders" \
-    --review-body "Performance suggestion"
+# Build $review with review_body + comments, then post
+uv run post-review owner/repo 42 --input "$review" --event REQUEST_CHANGES
 ```
 
 For the full workflow including incremental build and approve patterns → `references/review-a-pr.md`
