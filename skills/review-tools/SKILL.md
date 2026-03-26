@@ -18,8 +18,9 @@ All `uv run` commands must be run from `scripts/` inside this skill directory. R
 ```bash
 cd <skill-root>/scripts
 uv run pr-threads owner/repo#35 --all
-uv run scan-violations owner/repo 42 --checklist <skill-root>/references/review-checklist.md --output review-42.json
-uv run post-review owner/repo 42 --input review-42.json --event REQUEST_CHANGES
+review=$(mktemp -t review-42-XXXX.json)
+uv run scan-violations owner/repo 42 --checklist <skill-root>/references/review-checklist.md --output "$review"
+uv run post-review owner/repo 42 --input "$review" --event REQUEST_CHANGES
 uv run reply-review owner/repo 45 --list --with-context
 ```
 
