@@ -9,11 +9,13 @@ Root of the PR review tools repo. Contains the installable Claude Code skill and
 ## Contents
 
 ```
-skills/                   → skills/review-tools/layout.md
-  review-tools/           — the installable review skill
+skills/
+  review-tools/           — the installable review skill → skills/review-tools/layout.md
     SKILL.md              — skill entry point
     references/           — workflow guides and review checklist
     scripts/              — Python CLI tools (uv-managed)
+  parallel-claude-sessions/ — skill for running multiple Claude sessions in parallel
+    SKILL.md              — skill entry point
 
 AGENTS.md                 — navigation, commands, conventions (canonical)
 CLAUDE.md -> AGENTS.md    — symlink
