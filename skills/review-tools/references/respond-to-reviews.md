@@ -3,6 +3,21 @@
 You're the PR author and someone has left comments on your PR. Use this to list, inspect, and reply to feedback.
 For giving feedback on someone else's PR, see `review-a-pr.md` instead.
 
+## Reaction Protocol
+
+Use reactions to communicate your intent clearly to reviewers:
+
+| Reaction | Meaning | When to use |
+|----------|---------|-------------|
+| 👀 `eyes` | "I've seen this" | React when you first read/acknowledge a comment. Signals you're aware of the feedback. |
+| 👍 `+1` (thumbs up) | "I agree, and it's done" | Reply with the fix, then react with +1 to confirm it's addressed. |
+| 👎 `-1` (thumbs down) | "I disagree" | React when you believe the comment is incorrect or not applicable. Reply explaining why. |
+
+**Workflow:**
+1. Read comment → react `eyes` (acknowledged)
+2. Fix the issue → reply with what you changed → react `+1` (done)
+3. Disagree → react `-1` → reply explaining your reasoning
+
 ## Workflow
 
 ### 1. List Comments
@@ -111,46 +126,56 @@ Help reviewers verify fixes quickly:
 
 ## Common Patterns
 
-**Pattern 1: Full context workflow (recommended)**
+**Pattern 1: Reaction Protocol Workflow (recommended for clarity)**
 
 ```bash
-# See everything before deciding
+# 1. First, acknowledge all comments you've read
 uv run reply-review owner/repo 45 --list --with-context
+uv run reply-review owner/repo 45 1111111111 --react eyes  # Acknowledged
+uv run reply-review owner/repo 45 2222222222 --react eyes  # Acknowledged
 
-# Inspect complex ones deeply
-uv run reply-review owner/repo 45 --inspect 1111111111
+# 2. After fixing, reply and mark as done with +1
+uv run reply-review owner/repo 45 1111111111 "Extracted to helper as suggested" --react +1
+uv run reply-review owner/repo 45 2222222222 "Fixed lock check by adding lock_acquired parameter" --react +1
 
-# Respond with confidence
-uv run reply-review owner/repo 45 1111111111 "Extracted to helper as suggested"
-uv run reply-review owner/repo 45 2222222222 "Fixed"
+# 3. If you disagree with a comment
+uv run reply-review owner/repo 45 3333333333 "This is test-only code; refactoring to @patch decorators would not improve readability significantly" --react -1
 ```
 
-**Pattern 2: Acknowledge all feedback quickly**
+**Pattern 2: Quick acknowledge-then-fix cycle**
 
 ```bash
-uv run reply-review owner/repo 45 --list
+# Acknowledge everything first (lets reviewer know you're engaged)
 uv run reply-review owner/repo 45 --react-all eyes
+
+# Later, as you fix each one, reply with +1
+uv run reply-review owner/repo 45 1111111111 "Added timeout handling" --react +1
+uv run reply-review owner/repo 45 2222222222 "Fixed TOCTOU race with O_EXCL" --react +1
 ```
 
-**Pattern 3: Request re-review after fixes**
+**Pattern 3: Request re-review after all fixes**
 
 ```bash
-# Reply individually with context, then add PR comment
-uv run reply-review owner/repo 45 1111111111 "Extracted helper function"
-uv run reply-review owner/repo 45 2222222222 "Added error handling as suggested"
+# Reply individually with context and +1 reactions
+uv run reply-review owner/repo 45 1111111111 "Extracted helper function" --react +1
+uv run reply-review owner/repo 45 2222222222 "Added error handling as suggested" --react +1
 gh pr comment owner/repo#45 --body "Fixed all items - PTAL"
 ```
 
-**Pattern 4: Selective responses**
+**Pattern 4: Selective responses with disagreement**
 
 ```bash
 # List with context first
 uv run reply-review owner/repo 45 --list --with-context
 
-# Respond to specific ones differently
-uv run reply-review owner/repo 45 1111111111 "Fixed"
-uv run reply-review owner/repo 45 2222222222 "Will do in follow-up PR" --react +1
-uv run reply-review owner/repo 45 3333333333 "Discussed offline - resolving"
+# Fixed - mark as done
+uv run reply-review owner/repo 45 1111111111 "Fixed line length violation" --react +1
+
+# Acknowledge but defer
+uv run reply-review owner/repo 45 2222222222 "Will address in follow-up PR - tracked in #123" --react +1
+
+# Disagree with reasoning
+uv run reply-review owner/repo 45 3333333333 "This is test-only style feedback that doesn't affect production code" --react -1
 ```
 
 ## Requirements
