@@ -344,6 +344,12 @@ def get_position(diff, path, target_line):
     return None
 
 
+def normalize_prefix(content: str, max_words: int = 20) -> str:
+    """Normalize content to first N words for display/storage."""
+    words = content.split()
+    return " ".join(words[:max_words])
+
+
 def scan(content, path, rules):
     """Scan content for violations against detection rules."""
     violations = []
@@ -359,6 +365,7 @@ def scan(content, path, rules):
                 violations.append({
                     'path': path,
                     'line': i,
+                    'prefix': normalize_prefix(line.strip()),
                     'cat': rule.category,
                     'rule': rule.name,
                     'msg': rule.message,
@@ -418,17 +425,18 @@ def main():
             table.add_column("Line", style="yellow", justify="right")
             table.add_column("Category", style="blue")
             table.add_column("Rule", style="red")
+            table.add_column("Code", style="dim", max_width=40)
             table.add_column("Fix", style="green")
-            
+
             for v in all_v:
-                table.add_row(v['path'], str(v['line']), v['cat'], v['rule'], v['fix'])
+                table.add_row(v['path'], str(v['line']), v['cat'], v['rule'], v['prefix'][:60], v['fix'])
             
             console.print(table)
         else:
             console.print("[green]✓ No violations found[/green]")
         return
     
-    comments = [{'path': v['path'], 'file_line': v['line'], 'position': v['pos'], 'body': f"**{v['rule']}**\n\n{v['msg']}\n\n💡 {v['fix']}"} for v in all_v]
+    comments = [{'path': v['path'], 'file_line': v['line'], 'position': v['pos'], 'content_hint': v['prefix'], 'body': f"**{v['rule']}**\n\n{v['msg']}\n\n💡 {v['fix']}"} for v in all_v]
     payload = {'review_body': 'Automated checklist review', 'commit_id': head, 'event': 'REQUEST_CHANGES' if all_v else 'COMMENT', 'comments': comments}
     
     if args.output:

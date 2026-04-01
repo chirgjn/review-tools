@@ -1,13 +1,13 @@
-# Workflow: Respond to Review Comments on Your PR
+# Respond to Review Comments
 
 You're the PR author and someone has left comments on your PR. Use this to list, inspect, and reply to feedback.
 For giving feedback on someone else's PR, see `review-a-pr.md` instead.
 
-## Reaction Protocol
+## Reaction Protocol (How to Use Reactions)
 
 Use reactions to communicate your intent clearly to reviewers:
 
-| Reaction | Meaning | When to use |
+| Reaction | Meaning | When to Use |
 |----------|---------|-------------|
 | 👀 `eyes` | "I've seen this" | React when you first read/acknowledge a comment. Signals you're aware of the feedback. |
 | 👍 `+1` (thumbs up) | "I agree, and it's done" | Reply with the fix, then react with +1 to confirm it's addressed. |
@@ -18,9 +18,9 @@ Use reactions to communicate your intent clearly to reviewers:
 2. Fix the issue → reply with what you changed → react `+1` (done)
 3. Disagree → react `-1` → reply explaining your reasoning
 
-## Workflow
+## Response Workflow
 
-### 1. List Comments
+### 1. List All Comments
 
 **Quick preview (IDs, author, truncated body):**
 
@@ -36,7 +36,7 @@ uv run reply-review owner/repo 45 --list --with-context
 
 Shows: Full comment body, diff context around the line, thread replies.
 
-### 2. Inspect Deeply (Before Replying)
+### 2. Inspect Before Replying
 
 For complex threads, inspect a specific comment first:
 
@@ -46,7 +46,7 @@ uv run reply-review owner/repo 45 --inspect 1234567890
 
 Shows: Full body, complete diff hunk, thread history, metadata.
 
-### 3. Respond
+### 3. Send Replies
 
 > **Never use `--reply-all`** — mass replies with generic text ("✅ Fixed") make it impossible for reviewers to verify what changed. Reply individually with specific context.
 

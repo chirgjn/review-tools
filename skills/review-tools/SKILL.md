@@ -16,10 +16,10 @@ GitHub review comments are permanent with no undo. Every decision before posting
 All `uv run` commands must be run from `scripts/` inside this skill directory. Resolve the skill root from the directory containing this file if `${CLAUDE_SKILL_DIR}` is not set.
 
 ```bash
-cd <skill-root>/scripts
+cd ${CLAUDE_SKILL_DIR}/scripts
 uv run pr-threads owner/repo#35 --all
 review=$(mktemp -t review-42-XXXX.json)
-uv run scan-violations owner/repo 42 --checklist <skill-root>/references/review-checklist.md --output "$review"
+uv run scan-violations owner/repo 42 --checklist ${CLAUDE_SKILL_DIR}/references/review-checklist.md --output "$review"
 uv run post-review owner/repo 42 --input "$review" --event REQUEST_CHANGES
 uv run reply-review owner/repo 45 --list --with-context
 ```
@@ -36,7 +36,7 @@ Scan for violations, save to file, review, post once.
 # 1. Scan and save
 review=$(mktemp -t review-42-XXXX.json)
 uv run scan-violations owner/repo 42 \
-    --checklist <skill-root>/references/review-checklist.md \
+    --checklist ${CLAUDE_SKILL_DIR}/references/review-checklist.md \
     --output "$review"
 
 # 2. Inspect before posting
@@ -48,16 +48,42 @@ uv run post-review owner/repo 42 \
     --event REQUEST_CHANGES
 ```
 
-For manual comments, get the diff position first:
+For **Python 3.13** codebases, use the Python-specific checklist:
 
 ```bash
 review=$(mktemp -t review-42-XXXX.json)
-uv run get-positions owner/repo 42 src/hooks.ts:45   # → position 127
-# Build $review with review_body + comments, then post
-uv run post-review owner/repo 42 --input "$review" --event REQUEST_CHANGES
+uv run scan-violations owner/repo 42 \
+    --checklist ${CLAUDE_SKILL_DIR}/references/python-313-checklist.md \
+    --output "$review"
+# ...inspect and post as above
 ```
 
-For the full workflow including incremental build and approve patterns → `references/review-a-pr.md`
+For manual comments with full verification:
+
+```bash
+review=$(mktemp -t review-42-XXXX.json)
+
+# 1. Get position with content preview (for verification)
+uv run get-positions owner/repo 42 "src/hooks.ts:45:useEffect("
+# → [{"path":"src/hooks.ts","line":45,"position":127,"content_preview":"useEffect(() => {...}"}]
+
+# 2. Build review with content hint (stored for verification)
+uv run build-review --file "$review" \
+  --path src/hooks.ts --line 45 --position 127 \
+  --content "useEffect(()" \
+  --body "Add dependency array"
+
+# 3. Post automatically verifies before submitting
+uv run post-review owner/repo 42 --input "$review" --event REQUEST_CHANGES
+# → ✓ All positions verified
+# → ✓ Posted: https://github.com/...
+
+# If verification fails:
+# → ✗ Verification failed: content mismatch at src/hooks.ts:45
+# → Expected: useEffect(()  Actual: const x = 1
+```
+
+For full workflow details → `references/review-a-pr.md`
 
 ---
 
@@ -82,7 +108,7 @@ uv run reply-review owner/repo 45 --react-all eyes
 
 Match reply quality to complexity — specific context ("Extracted to helper") for complex changes, "Fixed" for simple ones. Avoid commit SHAs in replies (break on rebase).
 
-For full reply patterns → `references/respond-to-reviews.md`
+For full reply workflow → `references/respond-to-reviews.md`
 
 ---
 
@@ -92,13 +118,13 @@ For full reply patterns → `references/respond-to-reviews.md`
 # Fetch threads from recent PRs and analyze in one pipeline
 uv run pr-threads owner/repo#40 owner/repo#41 owner/repo#42 --all | \
     uv run suggest-checklist \
-        --checklist <skill-root>/references/review-checklist.md \
+        --checklist ${CLAUDE_SKILL_DIR}/references/review-checklist.md \
         --new-only
 ```
 
 Only add patterns appearing 3+ times. Manually update the checklist — don't use `--apply` without reviewing suggestions first.
 
-For filtering, threshold tuning, and saving threads for repeated analysis → `references/analyze-patterns.md`
+For pattern filtering and threshold tuning → `references/analyze-patterns.md`
 
 ---
 
@@ -108,7 +134,7 @@ Run one Claude Code session per PR in an isolated git worktree with an auto-appr
 
 Requires: `tmux`, `gh` authenticated, `claude` on PATH.
 
-For the full setup (worktrees, prompt files, auto-approver script, launch sequence) → `references/parallel-pr-review.md`
+For full setup details → `references/parallel-pr-review.md`
 
 ## Routing
 
@@ -119,3 +145,4 @@ For the full setup (worktrees, prompt files, auto-approver script, launch sequen
 | Pattern extraction and checklist update workflow          | `references/analyze-patterns.md`   |
 | Parallel reviews with tmux and auto-approver              | `references/parallel-pr-review.md` |
 | Violation detection rules and regex patterns              | `references/review-checklist.md`   |
+| **Python 3.13 specific patterns** — type hints, generics | `references/python-313-checklist.md` |
