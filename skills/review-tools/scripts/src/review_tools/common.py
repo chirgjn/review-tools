@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Common utilities for review tools."""
 
+import re
 import subprocess
 import sys
 from collections import OrderedDict
@@ -38,16 +39,30 @@ def get_current_user(token: str) -> str | None:
 
 
 def fetch_pr_comments(repo: str, pr: int, token: str) -> list[dict[str, Any]]:
-    """Fetch review comments from PR via GitHub API."""
-    resp = httpx.get(
-        f"https://api.github.com/repos/{repo}/pulls/{pr}/comments",
-        headers={
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json",
-        },
-    )
-    resp.raise_for_status()
-    return resp.json()
+    """Fetch ALL review comments from PR via GitHub API (with pagination)."""
+    all_comments: list[dict[str, Any]] = []
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr}/comments"
+
+    while url:
+        resp = httpx.get(
+            url,
+            headers={
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github.v3+json",
+            },
+        )
+        resp.raise_for_status()
+        all_comments.extend(resp.json())
+
+        # Parse Link header for next page
+        link_header = resp.headers.get("link", "")
+        url = None
+        if 'rel="next"' in link_header:
+            match = re.search(r'<([^>]+)>; rel="next"', link_header)
+            if match:
+                url = match.group(1)
+
+    return all_comments
 
 
 def fetch_issue_comments(repo: str, pr: int, token: str) -> list[dict[str, Any]]:
