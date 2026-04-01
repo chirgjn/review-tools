@@ -109,21 +109,23 @@ Most rules are React/TypeScript-specific — when installing this skill in a non
 
 ---
 
-## Auto-Detection Tags
+## Auto-Detection Tags (for scan-violations)
 
-Items with `@detect` tags are automatically scanned by `scan_for_violations.py`. Add your own:
+Items with `@detect` tags are automatically scanned by `scan_for_violations.py`.
+
+### Tag Format
 
 ```markdown
 - [ ] **Rule description** — explanation here
-      @detect: pattern1|pattern2   ← use | for multiple patterns, NOT multiple @detect lines
-      @anti: exclusion_pattern (optional)
+      @detect: pattern1|pattern2   # Use | for multiple patterns
+      @anti: exclusion_pattern     # Optional
       @msg: Short violation message
       @fix: How to fix it
 ```
 
-> **Multiple `@detect` lines are silently broken** — only the last one is used, earlier ones are ignored without warning. Always combine patterns with `|` on a single line.
+> **Warning:** Multiple `@detect` lines are silently broken — only the last one is used. Always combine patterns with `|` on a single line.
 
-**Example — detect console.log:**
+### Example: Detect console.log
 
 ```markdown
 - [ ] **No console.log in production** — use logger instead

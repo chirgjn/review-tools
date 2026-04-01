@@ -1,6 +1,6 @@
-# Parallel PR Review Workflow
+# Parallel PR Review
 
-> **Agent instruction:** Do not post any reviews to GitHub. Your job is to orchestrate the review sessions and collect findings only.
+> **Orchestrator rule:** Do not post reviews to GitHub. Your job is to orchestrate review sessions and collect findings only.
 
 Run multiple Claude Code instances simultaneously, one per PR, each reviewing in an isolated git worktree. A background poller auto-approves tool permission prompts so reviews run unattended. Each agent saves its findings to the worktree and exits when done.
 
@@ -28,7 +28,7 @@ git worktree list
 git worktree add .worktrees/pr-<N> <sha>
 ```
 
-Fetch the SHA for each PR:
+**Fetch the SHA for each PR:**
 ```bash
 gh pr view <N> --json headRefOid --jq '.headRefOid'
 
@@ -39,7 +39,7 @@ for pr in 38 39 40 41 42; do
 done
 ```
 
-> **Note:** `git worktree list` is the source of truth. If a directory exists under `.worktrees/` but doesn't appear in `git worktree list`, it's a stale directory — remove it and re-add.
+> **Important:** `git worktree list` is the source of truth. If a directory exists under `.worktrees/` but doesn't appear in `git worktree list`, it's stale — remove it and re-add.
 
 ---
 
@@ -47,7 +47,7 @@ done
 
 Create one prompt file per PR at `/tmp/prompt-pr<N>.txt`. Keep them identical in structure, varying only PR number, title, and worktree path.
 
-**Template:**
+### Prompt Template
 ```
 Do NOT invoke or use any skills. Do not use slash commands. Do not call the Skill tool. Proceed directly with your own capabilities.
 
@@ -64,14 +64,14 @@ All artifacts must go into <worktree-path>/.review/.
 ## Task
 Review this PR thoroughly using the review tools. Read the references/ docs for workflow and file format guidance. Save your findings to <worktree-path>/.review/review.json.
 
-IMPORTANT — diff positions: Every comment in review.json must use a GitHub diff position, not a source file line number. Use `uv run get-positions <owner>/<repo> <N> <file>:<line>` to convert each file:line to its diff position before writing the JSON. Comments with source line numbers outside the diff will be rejected by the API.
+IMPORTANT — diff positions: Every comment in review.json must use a GitHub diff position, not a source file line number. Use `uv run get-positions <owner>/<repo> <N> <file>:<line>:<content>` to convert each file:line:content to its diff position before writing the JSON. The content hint verifies you're commenting on the correct line. Comments with source line numbers outside the diff will be rejected by the API.
 
 IMPORTANT: Do NOT post the review to GitHub under any circumstances. Do NOT ask for permission to post. Do NOT suggest posting. Your only output is the saved artifacts and a summary presented in the session.
 
 Present your findings when complete, then stop. Do not wait for further input.
 ```
 
-Key points:
+### Key Points
 - **"Do NOT invoke skills"** — prevents Claude from triggering skill consent prompts that block the session.
 - **Artifact isolation** — all output files go into the PR's own worktree, not into the shared review-tools directory.
 - **"Do NOT post"** — the review agent must not post to GitHub; that decision stays with the orchestrator.
@@ -173,7 +173,7 @@ for pr in 38 39 40 41 42; do
 done
 ```
 
-> **Why `load-buffer` + `paste-buffer`?** Claude Code's TUI doesn't accept multi-line `send-keys` input. `paste-buffer` triggers bracketed paste mode, which Claude handles correctly — it shows `[Pasted text #1 +N lines]`, which means the paste worked.
+> **Why `load-buffer` + `paste-buffer`?** Claude's TUI doesn't accept multi-line `send-keys`. `paste-buffer` triggers bracketed paste mode, showing `[Pasted text #1 +N lines]` when successful.
 
 ---
 

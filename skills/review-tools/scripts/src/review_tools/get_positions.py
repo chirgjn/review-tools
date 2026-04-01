@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""get-positions — Convert file:line to GitHub diff position.
+"""get-positions — Convert file:line:content to GitHub diff position with verification.
 
 GitHub API uses "position" (line in unified diff @@ header), not file line number.
+Requires content hint to verify you're commenting on the correct line.
 
-Usage: uv run get-positions <owner/repo> <pr> <file:line>... [options]
+Always outputs JSON array format.
+
+Usage: uv run get-positions <owner/repo> <pr> <file:line:content>...
 
 Options:
   --file PATH    Read refs from file (one per line, # comments OK)
-  --json         Output as JSON array
-  --compact      Output one JSON per line
 
 Examples:
-  uv run get-positions owner/repo 42 src/hooks.ts:45
+  uv run get-positions owner/repo 42 "src/hooks.ts:45:useEffect("
+  uv run get-positions owner/repo 42 "src/hooks.ts:45:useEffect(" | jq -r '.[0].position'
   uv run get-positions owner/repo 42 --file refs.txt
-  uv run get-positions owner/repo 42 src/hooks.ts:45 src/utils.ts:12 --json
 """
 
 import argparse
@@ -44,6 +45,42 @@ def fetch_diff(repo: str, pr: int) -> str:
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Error fetching diff: {e.stderr}[/red]")
         sys.exit(1)
+
+
+def normalize_content(content: str, max_words: int = 20) -> str:
+    """Normalize content to first N words for display."""
+    content = content.strip().strip('"').strip("'")
+    words = content.split()
+    return " ".join(words[:max_words])
+
+
+def get_content_at_line(diff: str, target_path: str, target_line: int) -> str | None:
+    """Get the actual content at a specific line in the file's diff."""
+    lines = diff.split("\n")
+    in_file, in_hunk = False, False
+    file_line = 0
+    
+    for line in lines:
+        if line.startswith("diff --git"):
+            in_file, in_hunk = False, False
+        elif line.startswith("+++ b/"):
+            in_file = target_path in line[6:]
+            file_line = 0
+        elif not in_file:
+            continue
+        elif line.startswith("@@"):
+            in_hunk = True
+            m = _RE_DIFF_HUNK.match(line)
+            if m:
+                file_line = int(m.group(2)) - 1  # Will be incremented
+        elif in_hunk and line.startswith("+"):
+            file_line += 1
+            if file_line == target_line:
+                return line[1:]  # Remove + prefix
+        elif in_hunk and not line.startswith("-"):
+            file_line += 1
+    
+    return None
 
 
 def find_position(diff: str, target_path: str, target_line: int) -> int | None:
@@ -85,26 +122,66 @@ def find_position(diff: str, target_path: str, target_line: int) -> int | None:
     return None
 
 
-def parse_ref(ref: str) -> tuple[str, int] | None:
-    """Parse file:line reference."""
-    match = re.match(r"^(.+):(\d+)$", ref)
-    if not match:
-        return None
-    return match.group(1), int(match.group(2))
+def parse_ref(ref: str) -> tuple[str, int, str] | None:
+    """Parse file:line:content reference. Content hint is required for verification."""
+    # Require file:line:content format
+    match = re.match(r"^(.+):(\d+):(.+)$", ref)
+    if match:
+        return match.group(1), int(match.group(2)), match.group(3)
+    
+    # file:line without content is not allowed
+    return None
+
+
+def verify_and_report(diff: str, path: str, line: int, expected_hint: str) -> dict:
+    """Find position and verify content matches expected hint."""
+    pos = find_position(diff, path, line)
+    actual_content = get_content_at_line(diff, path, line) if pos else None
+    
+    if pos is None:
+        return {
+            "path": path,
+            "line": line,
+            "position": None,
+            "status": "not_found",
+            "error": "Line not found in diff"
+        }
+    
+    normalized_expected = normalize_content(expected_hint)
+    normalized_actual = normalize_content(actual_content or "")
+    
+    if normalized_expected in normalized_actual or expected_hint in (actual_content or ""):
+        return {
+            "path": path,
+            "line": line,
+            "position": pos,
+            "status": "verified",
+            "content_preview": normalized_actual
+        }
+    else:
+        return {
+            "path": path,
+            "line": line,
+            "position": pos,
+            "status": "mismatch",
+            "expected": normalized_expected,
+            "actual": normalized_actual
+        }
+
+
+# Results are always output as JSON, no human formatting needed
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Convert file:line to GitHub diff position",
+        description="Convert file:line:content to GitHub diff position (with content verification)",
         epilog=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("repo", help="owner/repo")
     parser.add_argument("pr", type=int, help="PR number")
-    parser.add_argument("refs", nargs="*", help="File:line references (e.g., src/file.ts:45)")
+    parser.add_argument("refs", nargs="*", help="File:line:content references (content hint required for verification)")
     parser.add_argument("--file", help="Read refs from file (one per line)")
-    parser.add_argument("--json", action="store_true", help="Output as JSON array")
-    parser.add_argument("--compact", action="store_true", help="Output one JSON per line")
     args = parser.parse_args()
 
     # Validate repo format
@@ -136,29 +213,31 @@ def main():
 
     # Find positions
     results: list[dict] = []
+    all_ok = True
+    
     for ref in refs:
         parsed = parse_ref(ref)
         if not parsed:
-            console.print(f"[yellow]Skip: {ref}[/yellow]")
+            results.append({
+                "error": "Invalid format",
+                "ref": ref,
+                "hint": "Use: file:line:content (e.g., src/file.ts:45:useEffect()"
+            })
+            all_ok = False
             continue
+        
+        path, line, hint = parsed
+        result = verify_and_report(diff, path, line, hint)
+        results.append(result)
+        
+        if result["status"] in ("not_found", "mismatch"):
+            all_ok = False
 
-        path, line = parsed
-        pos = find_position(diff, path, line)
-
-        if pos:
-            console.print(f"[green]✓ {path}:{line} → {pos}[/green]")
-            results.append({"path": path, "line": line, "position": pos})
-        else:
-            console.print(f"[yellow]Not found: {path}:{line}[/yellow]")
-            results.append({"path": path, "line": line, "position": None})
-
-    # Output
-    if args.json:
-        console.print_json(json.dumps(results))
-    elif args.compact:
-        for r in results:
-            console.print(json.dumps(r))
-    # else: human-readable already printed above
+    # Always output JSON
+    print(json.dumps(results, indent=2))
+    
+    if not all_ok:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

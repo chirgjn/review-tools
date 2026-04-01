@@ -8,6 +8,7 @@ Options:
   --path P                 File path
   --line N                 Source file line number (informational; stored as file_line)
   --position N             Diff position (from get-positions; required for GitHub API)
+  --content TEXT           Content hint for verification (first 20 words of the line)
   --body TEXT              Comment body
   --body-file FILE         Read body from file
   --summary-file FILE      Set the review summary from a file (stored in the payload file)
@@ -19,7 +20,7 @@ Options:
 
 Examples:
   uv run build-review --summary-file summary-42.md
-  uv run build-review --path src/hooks.ts --line 45 --position 42 --body-file comment.md
+  uv run build-review --path src/hooks.ts --line 45 --position 42 --content "useEffect(()" --body-file comment.md
   uv run build-review --show
   uv run build-review --post owner/repo 42 --event REQUEST_CHANGES
 """
@@ -46,6 +47,7 @@ def main():
     parser.add_argument("--path", help="File path")
     parser.add_argument("--line", type=int, help="Source file line number (informational)")
     parser.add_argument("--position", type=int, help="Diff position (from get-positions)")
+    parser.add_argument("--content", help="Content hint for verification (first 20 words of the line)")
     parser.add_argument("--body", help="Comment body")
     parser.add_argument("--body-file", help="File with comment body")
     parser.add_argument("--show", action="store_true", help="Show payload")
@@ -65,11 +67,11 @@ def main():
             sys.exit(1)
         data["review_body"] = Path(args.summary_file).read_text()
         save(args.file, data)
-    if args.path or args.position is not None or args.line is not None or body:
-        if not all([args.path, args.position is not None, body]):
-            print("Error: --path, --position, and --body/--body-file required together", file=sys.stderr)
+    if args.path or args.position is not None or args.line is not None or body or args.content:
+        if not all([args.path, args.position is not None, body, args.content]):
+            print("Error: --path, --position, --content, and --body/--body-file required together", file=sys.stderr)
             sys.exit(1)
-        comment = {"path": args.path, "position": args.position, "body": body}
+        comment = {"path": args.path, "position": args.position, "content_hint": args.content, "body": body}
         if args.line is not None:
             comment["file_line"] = args.line
         data["comments"].append(comment)

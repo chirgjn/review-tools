@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
-"""post-review — Post batched GitHub PR review.
+"""post-review — Post batched GitHub PR review with automatic verification.
 
 ⚠️ ALWAYS batch comments into ONE review. Never post multiple reviews (creates permanent timeline noise).
+
+Verifies comment positions match stored content hints before posting.
 
 Usage: uv run post-review <owner/repo> <pr> --input FILE [options]
 
 RECOMMENDED:
   --input FILE          Read review payload from JSON (batch multiple comments)
                         JSON must include a "review_body" field and a "comments" array.
+                        Each comment should have: path, position, content_hint, body
   --event TYPE          COMMENT (default), APPROVE, REQUEST_CHANGES
 
 Single comment (use sparingly):
   --path P              File path
   --position N          Diff position (from get-positions)
+  --content TEXT        Content hint for verification (required with --path)
   --body-file FILE      Read body from file (review before posting)
   --body TEXT           Inline body (discouraged; ≥10 words except LGTM, Approved, Done, Fixed, Acknowledged)
 
@@ -28,14 +32,15 @@ Examples:
   uv run post-review owner/repo 42 --input review.json --event REQUEST_CHANGES
 
   # Single from file
-  uv run post-review owner/repo 42 --path X.ts --position 5 --body-file comment.md
+  uv run post-review owner/repo 42 --path X.ts --position 5 --content "def foo" --body-file comment.md
 
   # Single quick (opt-in to separate review entry)
-  uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X.ts --position 5 --body "LGTM"
+  uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X.ts --position 5 --content "def foo" --body "LGTM"
 """
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -62,6 +67,104 @@ def fetch_head(repo: str, pr: int) -> str:
         sys.exit(1)
 
 
+def fetch_diff(repo: str, pr: int) -> str:
+    """Fetch PR diff from GitHub API."""
+    try:
+        result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/pulls/{pr}", "-H", "Accept: application/vnd.github.v3.diff"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]Error fetching diff: {e.stderr}[/red]")
+        sys.exit(1)
+
+
+def get_content_at_line(diff: str, path: str, line: int) -> str | None:
+    """Get content at specific line in file's diff."""
+    lines = diff.split("\n")
+    in_file = False
+    in_hunk = False
+    file_line = 0
+    
+    for diff_line in lines:
+        if diff_line.startswith("+++ b/"):
+            in_file = path in diff_line[6:]
+            file_line = 0
+        elif not in_file:
+            continue
+        elif diff_line.startswith("@@"):
+            in_hunk = True
+            m = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", diff_line)
+            if m:
+                file_line = int(m.group(2)) - 1
+        elif in_hunk and diff_line.startswith("+"):
+            file_line += 1
+            if file_line == line:
+                return diff_line[1:]
+        elif in_hunk and not diff_line.startswith("-"):
+            file_line += 1
+    
+    return None
+
+
+def normalize(content: str, max_words: int = 20) -> str:
+    """Normalize content to first N words."""
+    words = content.split()
+    return " ".join(words[:max_words])
+
+
+def verify_comment(diff: str, comment: dict) -> tuple[bool, str]:
+    """Verify a single comment's position matches content_hint.
+    
+    Returns: (verified, error_message)
+    """
+    path = comment.get("path")
+    file_line = comment.get("file_line")
+    content_hint = comment.get("content_hint")
+    
+    if not path or file_line is None:
+        return False, "Missing path or file_line"
+    
+    if not content_hint:
+        return False, "No content_hint stored. Use build-review --content"
+    
+    actual_content = get_content_at_line(diff, path, file_line)
+    
+    if actual_content is None:
+        return False, "Line not found in diff"
+    
+    # Check if content matches
+    normalized_hint = normalize(content_hint)
+    normalized_actual = normalize(actual_content)
+    
+    if normalized_hint in normalized_actual or content_hint in actual_content:
+        return True, ""
+    else:
+        return False, f"Content mismatch (expected: {normalized_hint[:40]}, actual: {normalized_actual[:40]})"
+
+
+def verify_all_comments(diff: str, comments: list[dict]) -> tuple[bool, list[tuple[int, dict, str]]]:
+    """Verify all comments in the review.
+    
+    Returns: (all_ok, failures) where failures is list of (index, comment, error)
+    """
+    failures = []
+    
+    for i, comment in enumerate(comments):
+        # Only verify inline comments with position
+        if comment.get("position") is None:
+            continue
+            
+        verified, error = verify_comment(diff, comment)
+        if not verified:
+            failures.append((i, comment, error))
+    
+    return len(failures) == 0, failures
+
+
 def post_review(repo: str, pr: int, payload: dict) -> dict:
     """Post review to GitHub API."""
     try:
@@ -78,20 +181,20 @@ def post_review(repo: str, pr: int, payload: dict) -> dict:
         sys.exit(1)
 
 
-def build_comments_from_flags(paths: list[str], positions: list[int], bodies: list[str]) -> list[dict]:
+def build_comments_from_flags(paths: list[str], positions: list[int], bodies: list[str], contents: list[str]) -> list[dict]:
     """Build comments array from individual flag arguments."""
     if len(paths) != len(positions) or len(paths) != len(bodies):
-        raise ValueError(f"Mismatch: {len(paths)} paths, {len(positions)} positions, {len(bodies)} bodies")
+        raise ValueError(f"Mismatch: {len(paths)} paths, {len(positions)} positions, {len(bodies)} bodies, {len(contents)} contents")
 
     return [
-        {"path": p, "position": pos, "body": b}
-        for p, pos, b in zip(paths, positions, bodies, strict=True)
+        {"path": p, "position": pos, "content_hint": c, "body": b}
+        for p, pos, c, b in zip(paths, positions, contents, bodies, strict=True)
     ]
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Post batched GitHub PR review with inline comments",
+        description="Post batched GitHub PR review with automatic verification",
         epilog=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -99,6 +202,7 @@ def main():
     parser.add_argument("pr", type=int, help="PR number")
     parser.add_argument("--path", action="append", default=[], help="File path")
     parser.add_argument("--position", type=int, action="append", default=[], help="Diff position")
+    parser.add_argument("--content", action="append", default=[], help="Content hint for verification")
     parser.add_argument("--body", help="Comment body")
     parser.add_argument("--body-file", help="Read body from file")
     parser.add_argument(
@@ -112,14 +216,14 @@ def main():
     args = parser.parse_args()
 
     # Single comment reviews require explicit opt-in
-    using_inline = args.path or args.position or args.body
+    using_inline = args.path or args.position or args.body or args.content
     if using_inline and not args.input and not args.i_know_this_creates_separate_review:
         console.print("[red]Error: Single comment reviews create separate GitHub review entries (clutters PR history).[/red]")
         console.print("[dim]   Option 1: Use --input FILE to batch multiple comments (recommended):[/dim]")
         console.print("[dim]     uv run scan-violations owner/repo 42 --output review.json[/dim]")
         console.print("[dim]     uv run post-review owner/repo 42 --input review.json[/dim]")
         console.print("[dim]   Option 2: Use --i-know-this-creates-separate-review to explicitly accept the anti-pattern:[/dim]")
-        console.print("[dim]     uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X --position N --body 'LGTM'[/dim]")
+        console.print("[dim]     uv run post-review owner/repo 42 --i-know-this-creates-separate-review --path X --position N --content 'def foo' --body 'LGTM'[/dim]")
         sys.exit(1)
 
     # Validate comment word count (discourage short comments, allow common short responses)
@@ -149,6 +253,8 @@ def main():
 
     # Build comments (load file first so review_body can come from it)
     review_body: str | None = None
+    raw_comments: list[dict] = []
+    
     if args.input:
         if not Path(args.input).exists():
             console.print(f"[red]Error: Input file not found: {args.input}[/red]")
@@ -156,11 +262,6 @@ def main():
         with open(args.input) as f:
             data = json.load(f)
             raw_comments = data.get("comments", [])
-            # Strip informational fields (e.g. file_line) not accepted by GitHub API
-            comments = [
-                {k: v for k, v in c.items() if k in ("path", "position", "body")}
-                for c in raw_comments
-            ]
             review_body = data.get("review_body")
 
     if args.input and not review_body:
@@ -179,10 +280,20 @@ def main():
             body = Path(args.body_file).read_text()
 
         if not args.path:
-            console.print("[red]Error: Provide --path/--position/--body or --input FILE[/red]")
+            console.print("[red]Error: Provide --path/--position/--content/--body or --input FILE[/red]")
             sys.exit(1)
 
-        comments = build_comments_from_flags(args.path, args.position, [body])
+        # Validate content hint required
+        if not args.content:
+            console.print("[red]Error: --content is required for verification (first 20 words of the line)[/red]")
+            console.print("[dim]   Example: --content 'def handle_request'[/dim]")
+            sys.exit(1)
+
+        if len(args.content) != len(args.path):
+            console.print(f"[red]Error: Mismatch: {len(args.path)} paths but {len(args.content)} content hints[/red]")
+            sys.exit(1)
+
+        raw_comments = build_comments_from_flags(args.path, args.position, [body], args.content)
         review_body = review_body or body  # fall back to comment body for single inline comments
 
     review_word_count = count_words(review_body)
@@ -193,8 +304,8 @@ def main():
         sys.exit(1)
 
     # Only allow single inline comment - use --input FILE for multiple comments
-    if using_inline and len(comments) > 1:
-        console.print(f"[red]Error: Attempting to post {len(comments)} comments via inline flags.[/red]")
+    if using_inline and len(raw_comments) > 1:
+        console.print(f"[red]Error: Attempting to post {len(raw_comments)} comments via inline flags.[/red]")
         console.print("[yellow]   Inline flags only support SINGLE comments.[/yellow]")
         console.print("[dim]   For multiple comments, use --input FILE to batch into ONE review:[/dim]")
         console.print("[dim]     uv run scan-violations owner/repo 42 --output review.json[/dim]")
@@ -203,7 +314,7 @@ def main():
 
     # Validate comment word counts
     short_comments = []
-    for i, c in enumerate(comments):
+    for i, c in enumerate(raw_comments):
         body_text = c.get("body", "")
         word_count = count_words(body_text)
         if word_count < min_words and not is_allowed_short(body_text):
@@ -221,6 +332,31 @@ def main():
     # Fetch head commit
     with console.status("[bold green]Fetching head commit..."):
         head = fetch_head(args.repo, args.pr)
+
+    # VERIFICATION STEP
+    with console.status("[bold green]Verifying positions against diff..."):
+        diff = fetch_diff(args.repo, args.pr)
+    
+    all_ok, failures = verify_all_comments(diff, raw_comments)
+    
+    if not all_ok:
+        console.print(f"[red]✗ Verification failed for {len(failures)} comment(s):[/red]\n")
+        for i, comment, error in failures:
+            path = comment.get("path", "unknown")
+            line = comment.get("file_line", "unknown")
+            console.print(f"  {i+1}. [red]{path}:{line}[/red]")
+            console.print(f"      Error: {error}")
+            console.print(f"      Body: {comment.get('body', 'N/A')[:50]}...")
+        console.print("\n[yellow]Fix the positions or content hints and try again.[/yellow]")
+        sys.exit(1)
+    
+    console.print(f"[green]✓ All {len(raw_comments)} position(s) verified[/green]\n")
+
+    # Strip non-API fields before posting
+    comments = [
+        {k: v for k, v in c.items() if k in ("path", "position", "body")}
+        for c in raw_comments
+    ]
 
     # Build payload
     payload = {

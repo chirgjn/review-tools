@@ -1,17 +1,20 @@
-# Workflow: Analyze PR Patterns → Update Checklist
+# Analyze PR Patterns → Update Checklist
 
 Extract recurring themes from past PR reviews.
 
 ## Workflow
 
-### 1. Fetch Comments (3-5 PRs, mix recent + older)
+### 1. Fetch Comments
 
 ```bash
 uv run pr-threads owner/repo#35 owner/repo#36 owner/repo#37 --all
 uv run pr-threads owner/repo#35 owner/repo#36 --all > /tmp/threads.txt  # Save to file
 ```
 
-**Tips:** `--all` (all reviewers), `--file-pattern .tsx` (filter files), `--body-filter useCallback` (filter themes)
+**Filter options:**
+- `--all` — include all reviewers
+- `--file-pattern .tsx` — filter by file type
+- `--body-filter useCallback` — filter by content
 
 ### 2. Analyze Patterns
 
@@ -34,7 +37,7 @@ uv run pr-threads owner/repo#35 owner/repo#36 --all | \
 uv run suggest-checklist --input /tmp/threads.txt --threshold 5
 ```
 
-### 3. Update Checklist
+### 3. Update the Checklist
 
 The analysis outputs:
 
@@ -62,7 +65,7 @@ SUGGESTED UPDATES
 
 Add to checklist: `- [ ] useEffect has exhaustive deps — add all dependencies or document why empty`
 
-**Rule of thumb:** Only add patterns appearing 3+ times.
+> **Rule of thumb:** Only add patterns appearing 3+ times.
 
 ## Tools
 
